@@ -1,6 +1,13 @@
 # OpenAPI Specification
 
-This directory contains the ALQari API OpenAPI 3.1 specification in both YAML and JSON formats.
+This directory contains a **public subset** of the ALQari (Qari) API OpenAPI 3.1
+specification, in both YAML and JSON formats. It is derived mechanically from the
+backend-generated OpenAPI export and covers the developer-hub endpoints (upload &
+OCR, OCR outputs, validation, chat, workflow upload/runs, auth login, and API-key
+management).
+
+It is **not** the complete API surface. For the full, always-current, authoritative
+reference, use [alqari.sa/api-docs](https://alqari.sa/api-docs).
 
 ## Files
 

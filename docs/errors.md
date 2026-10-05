@@ -1,28 +1,43 @@
 # Errors
 
-ALQari uses standard HTTP status codes and returns a consistent error object for every failed request.
+ALQari uses conventional HTTP status codes. Domain errors carry a human-readable `detail` plus a stable machine-readable `code`.
+
+> Branch your logic on the `code` field, not on the message text.
 
 ---
 
-## Error Response Format
+## Error Response Formats
+
+### Domain error
 
 ```json
 {
-  "error": {
-    "code": "document_not_found",
-    "message": "No document found with id 'doc_abc123'.",
-    "status": 404,
-    "request_id": "req_20260612abc"
-  }
+  "detail": "Document not found",
+  "code": "DOCUMENT_NOT_FOUND",
+  "violations": null,
+  "context": null
 }
 ```
 
-| Field        | Description                                          |
-|--------------|------------------------------------------------------|
-| `code`       | Machine-readable error code (see table below)        |
-| `message`    | Human-readable description                           |
-| `status`     | HTTP status code                                     |
-| `request_id` | Unique request ID — include this when contacting support |
+Fields (`violations`, `context`) may be `null` depending on the error.
+
+### Validation error (422)
+
+```json
+{
+  "detail": [
+    { "loc": ["body", "file"], "msg": "field required", "type": "missing" }
+  ]
+}
+```
+
+### Unexpected error (500)
+
+```json
+{
+  "detail": "An unexpected error occurred. Please try again."
+}
+```
 
 ---
 
@@ -31,53 +46,36 @@ ALQari uses standard HTTP status codes and returns a consistent error object for
 | Status | Meaning                                                 |
 |--------|---------------------------------------------------------|
 | `200`  | OK — request succeeded                                  |
-| `201`  | Created — resource was created                          |
-| `202`  | Accepted — async job started                            |
-| `204`  | No Content — DELETE succeeded                           |
-| `400`  | Bad Request — invalid parameters                        |
-| `401`  | Unauthorized — missing or invalid API key               |
-| `403`  | Forbidden — API key lacks required scope                |
+| `202`  | Accepted — async run started                            |
+| `401`  | Unauthorized — missing or invalid credentials           |
 | `404`  | Not Found — resource does not exist                     |
-| `409`  | Conflict — resource already exists                      |
-| `413`  | Payload Too Large — file exceeds 50 MB limit            |
-| `422`  | Unprocessable Entity — valid JSON but failed validation |
-| `429`  | Too Many Requests — rate limit exceeded                 |
+| `413`  | Payload Too Large — file exceeds the 20 MB limit        |
+| `422`  | Unprocessable Entity — request body failed validation   |
 | `500`  | Internal Server Error — unexpected server error         |
-| `503`  | Service Unavailable — temporary outage                  |
 
 ---
 
-## Error Codes
+## Stable Error Codes
 
-| Code                         | Status | Description                                           |
-|------------------------------|--------|-------------------------------------------------------|
-| `unauthorized`               | 401    | API key is missing or invalid                         |
-| `forbidden`                  | 403    | API key lacks the required scope                      |
-| `document_not_found`         | 404    | Document ID does not exist                            |
-| `webhook_not_found`          | 404    | Webhook ID does not exist                             |
-| `invalid_file_type`          | 400    | Uploaded file type is not supported                   |
-| `file_too_large`             | 413    | File exceeds the 50 MB size limit                     |
-| `ocr_not_completed`          | 409    | Extraction or chat requested before OCR is done       |
-| `invalid_schema`             | 422    | Extraction schema is malformed                        |
-| `invalid_rule`               | 422    | Validation rule is malformed                          |
-| `rate_limit_exceeded`        | 429    | Too many requests — see `Retry-After` header          |
-| `internal_error`             | 500    | Unexpected server error                               |
+Branch your logic on the `code` field. The stable codes are:
+
+| Code                        | Description                                           |
+|-----------------------------|-------------------------------------------------------|
+| `DOCUMENT_NOT_FOUND`        | Document ID does not exist                            |
+| `OCR_NOT_READY`             | OCR output requested before processing completed      |
+| `CHAT_NOT_READY`            | Chat requested before the document is processed for chat |
+| `CHAT_SERVICE_UNAVAILABLE`  | Chat service is temporarily unavailable               |
+| `PREMIUM_OCR_UNAVAILABLE`   | A premium OCR output was requested but is unavailable |
+| `UNSUPPORTED_FILE_TYPE`     | Uploaded file type is not supported                   |
+| `CORRUPTED_FILE`            | Uploaded file could not be read                       |
+| `FILE_TOO_LARGE`            | File exceeds the upload size limit (HTTP 413)         |
+| `WORKFLOW_NOT_ACTIVE`       | The target workflow is not active                     |
 
 ---
 
-## Rate Limit Errors
+## Rate Limiting
 
-When you hit a rate limit, the response includes a `Retry-After` header:
-
-```
-HTTP/1.1 429 Too Many Requests
-Retry-After: 60
-X-RateLimit-Limit: 100
-X-RateLimit-Remaining: 0
-X-RateLimit-Reset: 1749726060
-```
-
-See [Rate Limits](rate-limits.md) for details.
+ALQari does not currently publish specific rate limits, and responses do not include guaranteed `X-RateLimit-*` or `Retry-After` headers. Excessive request volumes may be throttled. See [Rate Limits](rate-limits.md).
 
 ---
 
@@ -85,15 +83,14 @@ See [Rate Limits](rate-limits.md) for details.
 
 | Symptom | Likely Cause | Fix |
 |---------|--------------|-----|
-| `401 unauthorized` | Missing `Authorization` header | Add `Authorization: Bearer $ALQARI_API_KEY` |
-| `403 forbidden` | Wrong key scope | Create a key with the required scope |
-| `404 document_not_found` | Wrong document ID | Verify the `document_id` from the upload response |
-| `409 ocr_not_completed` | Extraction before OCR | Run OCR first and wait for `status: completed` |
-| `413 file_too_large` | File > 50 MB | Compress or split the file |
-| `429 rate_limit_exceeded` | Too many requests | Respect `Retry-After` and add backoff |
+| `401` | Missing `Authorization` header | Add `Authorization: Bearer $ALQARI_API_KEY` |
+| `DOCUMENT_NOT_FOUND` | Wrong document ID | Verify the `document_id` from the upload response |
+| `OCR_NOT_READY` | Output requested too early | Retry after processing completes |
+| `CHAT_NOT_READY` | Chat not enabled | Upload with `process_for_chat=true` |
+| `FILE_TOO_LARGE` (413) | File > 20 MB | Compress or split the file |
 
 ---
 
 ## Contact Support
 
-Include the `request_id` from the error response when emailing **support@alqari.sa**.
+If a problem persists, contact **support@alqari.sa** with details of the failing request.

@@ -2,232 +2,216 @@
 
 Extract text from scanned, photographed, or printed Arabic and English documents — including Arabic handwriting.
 
----
-
-## Endpoint
-
-```
-POST /documents/{document_id}/ocr
-```
+Upload and OCR happen in a single step via `POST /services/upload-ocr`. The resulting outputs (plain text, structured regions, layout, markdown, HTML) are retrieved from `GET /services/ocr-output/{document_id}/...`.
 
 ---
 
-## Request Body
+## Upload & run OCR
 
-```json
-{
-  "language": "ar",
-  "detect_orientation": true,
-  "handwriting": false
-}
+```
+POST /services/upload-ocr
 ```
 
-| Field                | Type    | Default | Description                                                |
-|----------------------|---------|---------|------------------------------------------------------------|
-| `language`           | string  | `ar`    | `ar` · `en` · `ar+en` · `ar-hw` (Arabic handwriting)      |
-| `detect_orientation` | boolean | `true`  | Auto-rotate pages to correct orientation                   |
-| `handwriting`        | boolean | `false` | Enable Arabic handwriting recognition (`ar-hw`)            |
-| `pages`              | int[]   | all     | Specific pages to process, e.g. `[1, 2]`                  |
+Send as `multipart/form-data` with a `file` field. Do not set the `Content-Type` header manually. Processing completes within the request — configure appropriate HTTP timeouts for larger documents.
 
----
+### Query parameters
 
-## Example — Printed Arabic
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `skip_vlm` | boolean | `true` | Skip the advanced visual analysis step |
+| `mode` | `fast` \| `premium` | — | Processing tier |
+| `language` | `auto` \| `ar` \| `en` | — | Document language hint |
+| `department_id` | string | — | Optional department association |
+| `process_for_chat` | boolean | `false` | Enable later [Document Q&A](chat.md) |
 
-```bash
-curl -X POST https://api.alqari.sa/v1/documents/doc_abc123/ocr \
-  -H "Authorization: Bearer $ALQARI_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "language": "ar",
-    "detect_orientation": true
-  }'
-```
+### Optional header
 
-## Example — Arabic Handwriting
-
-```bash
-curl -X POST https://api.alqari.sa/v1/documents/doc_abc123/ocr \
-  -H "Authorization: Bearer $ALQARI_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "language": "ar-hw",
-    "handwriting": true
-  }'
-```
-
----
-
-## Response
-
-The response is returned synchronously when processing completes. A real example from a scanned Arabic handwritten document:
-
-```json
-{
-  "document_id": "a5aa5d2b-c63d-4645-8ad3-8b142bcfb57c",
-  "file_name": "sample-ar-handwriting.jpg",
-  "status": "completed",
-  "processing_time": 5.356,
-  "total_words": 398,
-  "created_at": "2026-06-06T14:03:33",
-  "download_urls": {
-    "original":   "https://api.alqari.sa/services/ocr-history/{document_id}/download/original",
-    "ocr":        "https://api.alqari.sa/services/ocr-history/{document_id}/download/ocr",
-    "markdown":   "https://api.alqari.sa/services/ocr-history/{document_id}/download/markdown",
-    "html":       "https://api.alqari.sa/services/ocr-history/{document_id}/download/html",
-    "blocks":     "https://api.alqari.sa/services/ocr-history/{document_id}/download/blocks"
-  },
-  "ocr_url":      "https://api.alqari.sa/services/ocr-output/{document_id}/ocr",
-  "markdown_url": "https://api.alqari.sa/services/ocr-output/{document_id}/markdown",
-  "html_url":     "https://api.alqari.sa/services/ocr-output/{document_id}/html",
-  "blocks_url":   "https://api.alqari.sa/services/ocr-output/{document_id}/blocks",
-  "metadata": {
-    "pages": 1,
-    "blocks": 9,
-    "tables": 0,
-    "figures": 0
-  },
-  "ocr_output": {
-    "ocr": [
-      {
-        "bbox": [[614, 298], [1494, 298], [1494, 394], [614, 394]],
-        "text": "الأمية معوقة للتنمية في كل المجالات",
-        "confidence": 0.7835
-      },
-      {
-        "bbox": [[1327, 444], [1879, 444], [1879, 554], [1327, 554]],
-        "text": "١/ الأمية وأسبابها :.",
-        "confidence": 0.7012
-      },
-      {
-        "bbox": [[0, 892], [1906, 892], [1906, 2768], [0, 2768]],
-        "text": "الأمية لغة هى نسبة إلى الأم وتعنى بقاء الشخص على ما ولدته أمه عليه...",
-        "confidence": 0.7146
-      }
-    ],
-    "layout": {
-      "pages": 1,
-      "blocks": [
-        {
-          "id": 1,
-          "bbox": [614, 298, 1494, 394],
-          "conf": 0.7835,
-          "page": 1,
-          "text": "الأمية معوقة للتنمية في كل المجالات",
-          "raw_label": "title",
-          "block_type": "heading_1"
-        },
-        {
-          "id": 2,
-          "bbox": [1327, 444, 1879, 554],
-          "conf": 0.7012,
-          "page": 1,
-          "text": "١/ الأمية وأسبابها :.",
-          "raw_label": "paragraph",
-          "block_type": "paragraph"
-        }
-      ],
-      "tables": [],
-      "figures": [],
-      "page_sizes": { "1": [1956, 3167] }
-    }
-  },
-  "markdown": "## الأمية معوقة للتنمية في كل المجالات\n\n١/ الأمية وأسبابها :...\n"
-}
-```
-
-### Response Fields
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `document_id` | string | Unique document identifier (UUID) |
-| `file_name` | string | Original uploaded filename |
-| `status` | string | `completed` · `processing` · `failed` |
-| `processing_time` | number | Seconds taken to process |
-| `total_words` | integer | Total word count across all pages |
-| `created_at` | string | ISO 8601 timestamp |
-| `download_urls` | object | Pre-signed download URLs for each output format |
-| `ocr_url` | string | Direct URL to raw OCR JSON output |
-| `markdown_url` | string | Direct URL to Markdown output |
-| `html_url` | string | Direct URL to HTML output |
-| `blocks_url` | string | Direct URL to block-level JSON |
-| `metadata` | object | Page count, block count, table count, figure count |
-| `ocr_output.ocr` | array | Per-block OCR results (see below) |
-| `ocr_output.layout` | object | Layout analysis with typed block classification |
-| `markdown` | string | Full document as Markdown |
-
-### OCR Block Fields
-
-Each entry in `ocr_output.ocr`:
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `text` | string | Extracted text for this block |
-| `confidence` | number | Confidence score 0.0–1.0 |
-| `bbox` | array | Four corner coordinates `[[x1,y1],[x2,y1],[x2,y2],[x1,y2]]` |
-
-### Layout Block Types
-
-Each entry in `ocr_output.layout.blocks`:
-
-| Field | Description |
-|-------|-------------|
-| `id` | Block index |
-| `bbox` | `[x1, y1, x2, y2]` in pixels |
-| `conf` | Confidence 0.0–1.0 |
-| `page` | Page number (1-indexed) |
-| `text` | Extracted text |
-| `raw_label` | Raw model label: `title` · `paragraph` · `pageFooter` |
-| `block_type` | Normalized type: `heading_1` · `paragraph` · `page_footer` |
-
-### Download Formats
-
-| Format | Description |
+| Header | Description |
 |--------|-------------|
-| `original` | The original uploaded file |
-| `ocr` | Raw OCR output as JSON |
-| `markdown` | Document as Markdown (headings preserved) |
-| `html` | Document as HTML with semantic structure |
-| `blocks` | Interactive block viewer HTML |
-| `extraction` | Structured field extraction (if run) |
+| `Idempotency-Key` | Optional. Supply a unique key per upload for billing de-duplication only: if a request that was already billed is retried with the same key, it is not charged again. It is not a response cache, does not replay a stored result, and has no documented TTL or retry window. |
+
+> The `Idempotency-Key` header is read manually from the request, so it is absent from the backend-generated OpenAPI. It is documented here in prose only.
+
+### Example — Arabic, premium tier
+
+```bash
+curl -X POST "https://api.alqari.sa/services/upload-ocr?mode=premium&language=ar&process_for_chat=true" \
+  -H "Authorization: Bearer $ALQARI_API_KEY" \
+  -F "file=@invoice_2024.pdf"
+```
+
+### Upload response
+
+```json
+{
+  "document_id": "doc_9xKpL3mN",
+  "file_name": "invoice_2024.pdf",
+  "pages": 3,
+  "processing_time": 4.21,
+  "total_words": 512,
+  "document_language": "ar",
+  "text": "فاتورة ضريبية ...",
+  "credits_consumed": 3,
+  "remaining_credits": 4977,
+  "included_outputs": {
+    "text_url": "https://api.alqari.sa/services/ocr-output/doc_9xKpL3mN/text",
+    "markdown_url": "https://api.alqari.sa/services/ocr-output/doc_9xKpL3mN/markdown",
+    "html_url": "https://api.alqari.sa/services/ocr-output/doc_9xKpL3mN/html",
+    "blocks_url": "https://api.alqari.sa/services/ocr-output/doc_9xKpL3mN/blocks"
+  },
+  "premium_outputs": {
+    "layout_url": "https://api.alqari.sa/services/ocr-output/doc_9xKpL3mN/layout",
+    "extraction_url": "https://api.alqari.sa/services/ocr-output/doc_9xKpL3mN/ocr"
+  }
+}
+```
+
+> `extraction_url` is the structured OCR-region output — it is **not** a generic custom-field extraction endpoint.
 
 ---
 
-## Get OCR Result
+## Plain text output
 
-Retrieve a previously run OCR result:
+```
+GET /services/ocr-output/{document_id}/text
+```
+
+Returns the full extracted text as `text/plain`.
 
 ```bash
-curl https://api.alqari.sa/v1/documents/doc_abc123/ocr \
+curl https://api.alqari.sa/services/ocr-output/doc_9xKpL3mN/text \
   -H "Authorization: Bearer $ALQARI_API_KEY"
 ```
 
----
+```
+Content-Type: text/plain
 
-## Asynchronous Processing
-
-For multi-page documents the OCR job runs asynchronously. Poll the `GET` endpoint until `status` is `completed` or `failed`, or use [webhooks](webhooks.md) to receive a push notification.
-
----
-
-## Confidence Scores
-
-The `confidence` field (0.0–1.0) indicates OCR accuracy per page and per word:
-
-| Range     | Meaning                     |
-|-----------|-----------------------------|
-| 0.95–1.00 | Excellent — reliable        |
-| 0.80–0.94 | Good — minor corrections may be needed |
-| 0.60–0.79 | Fair — review recommended   |
-| < 0.60    | Low — manual review required |
+فاتورة ضريبية
+Invoice No: INV-0001
+...
+```
 
 ---
 
-## Searchable PDF Output
+## Structured OCR output
 
-After OCR, the document is automatically indexed for [search](search.md). You can also retrieve a searchable PDF:
+```
+GET /services/ocr-output/{document_id}/ocr
+```
+
+Returns the structured OCR regions as JSON. Each element carries the text, its confidence, a 4-point bounding box, and the page number.
 
 ```bash
-curl https://api.alqari.sa/v1/documents/doc_abc123/ocr/pdf \
-  -H "Authorization: Bearer $ALQARI_API_KEY" \
-  --output searchable.pdf
+curl https://api.alqari.sa/services/ocr-output/doc_9xKpL3mN/ocr \
+  -H "Authorization: Bearer $ALQARI_API_KEY"
 ```
+
+```json
+{
+  "results": [
+    {
+      "text": "Invoice No: INV-0001",
+      "confidence": 0.984,
+      "bbox": [
+        [72.0, 118.0],
+        [268.0, 118.0],
+        [268.0, 138.0],
+        [72.0, 138.0]
+      ],
+      "page": 1
+    }
+  ],
+  "credits_consumed": 0,
+  "remaining_credits": 4980
+}
+```
+
+### `results[]` fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `text` | string | Recognized text for the region |
+| `confidence` | number | OCR recognition confidence, `0.0`–`1.0` |
+| `bbox` | number[][] | 4-corner polygon (see below) |
+| `page` | integer | Page number |
+
+### Bounding boxes
+
+`results[].bbox` is a 4-corner polygon in order: top-left, top-right, bottom-right, bottom-left. The origin is the top-left of the page. Coordinates are page-relative, use the native page units of the input, and are **not** normalized.
+
+```json
+"bbox": [
+  [x1, y1],
+  [x2, y2],
+  [x3, y3],
+  [x4, y4]
+]
+```
+
+Note: the OCR box (`results[].bbox`) is a 4-point polygon, while the layout box (`layout.blocks[].bbox`) is a rectangle `[left, top, right, bottom]`. The two shapes are different.
+
+### Confidence scores
+
+`results[].confidence` is OCR recognition confidence for the region (`0.0`–`1.0`). This is not a business-field confidence score. Layout block confidence is returned under a different key: `layout.blocks[].conf`.
+
+| Range     | Meaning                                 |
+|-----------|-----------------------------------------|
+| 0.95–1.00 | Excellent — reliable                    |
+| 0.80–0.94 | Good — minor corrections may be needed  |
+| 0.60–0.79 | Fair — review recommended               |
+| < 0.60    | Low — manual review required            |
+
+---
+
+## Layout output
+
+```
+GET /services/ocr-output/{document_id}/layout
+```
+
+Returns the document layout analysis as JSON: blocks, tables, figures, and page sizes. The layout block box is a rectangle `[left, top, right, bottom]`.
+
+```json
+{
+  "source": "invoice_2024.pdf",
+  "pages": 1,
+  "page_sizes": { "1": [826, 1280] },
+  "blocks": [
+    {
+      "id": 0,
+      "text": "Invoice No: INV-0001",
+      "conf": 0.984,
+      "bbox": [72, 118, 268, 138],
+      "block_type": "paragraph",
+      "page": 1,
+      "raw_label": "paragraph"
+    }
+  ],
+  "tables": [],
+  "figures": [],
+  "credits_consumed": 0,
+  "remaining_credits": 4980
+}
+```
+
+---
+
+## Other rendered formats
+
+| Endpoint | Returns |
+|----------|---------|
+| `GET /services/ocr-output/{document_id}/markdown` | Markdown |
+| `GET /services/ocr-output/{document_id}/html` | HTML |
+| `GET /services/ocr-output/{document_id}/blocks` | HTML (interactive blocks viewer) — not JSON |
+
+For structured JSON use the `/ocr` or `/layout` endpoints.
+
+---
+
+## Supported languages
+
+| Value    | Description                    |
+|----------|--------------------------------|
+| `auto`   | Auto-detect (default)          |
+| `ar`     | Arabic (printed & handwriting) |
+| `en`     | English                        |

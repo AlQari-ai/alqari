@@ -1,122 +1,107 @@
 # Validation
 
-Validation workflows let you apply business rules to extracted data and route documents for human review when needed.
+Run rule-based AI validation against an already-processed document. You supply a set of numbered rules as text; ALQari returns a verdict per rule plus an overall verdict.
+
+> Results are not always perfect — have a human review critical outcomes.
 
 ---
 
 ## Endpoint
 
 ```
-POST /documents/{document_id}/validation
+POST /services/ai-validate
 ```
 
----
+Parameters are passed as **query parameters**.
 
-## Request Body
+| Param | Type | Required | Description |
+|-------|------|----------|-------------|
+| `document_id` | string | Yes | The already-processed document |
+| `rules_text` | string | Yes | Newline-numbered validation rules |
 
-```json
-{
-  "rules": [
-    { "field": "invoice_date", "rule": "not_null" },
-    { "field": "total_amount", "rule": "greater_than", "value": 0 },
-    { "field": "tax_number",   "rule": "regex",       "pattern": "^3[0-9]{14}$" }
-  ],
-  "human_review_on_failure": true
-}
-```
+### Optional header
 
-### Rule Types
+| Header | Description |
+|--------|-------------|
+| `Idempotency-Key` | Optional. Used for billing de-duplication only: if a request that was already billed is retried with the same key, it is not charged again. It is not a response cache, does not replay the validation response, and has no documented TTL or retry window. |
 
-| Rule             | Description                                         |
-|------------------|-----------------------------------------------------|
-| `not_null`       | Field must be present and non-empty                 |
-| `greater_than`   | Numeric field must be > `value`                     |
-| `less_than`      | Numeric field must be < `value`                     |
-| `equals`         | Field value must equal `value`                      |
-| `regex`          | String field must match `pattern`                   |
-| `date_after`     | Date field must be after `value` (ISO 8601)         |
-| `date_before`    | Date field must be before `value` (ISO 8601)        |
-| `in_list`        | Value must be in `values` array                     |
-| `confidence_min` | OCR/extraction confidence must be ≥ `value` (0–1)  |
+> The `Idempotency-Key` header is read manually from the request, so it is absent from the backend-generated OpenAPI. It is documented here in prose only.
 
 ---
 
 ## Example
 
 ```bash
-curl -X POST https://api.alqari.sa/v1/documents/doc_abc123/validation \
-  -H "Authorization: Bearer $ALQARI_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "rules": [
-      { "field": "invoice_number", "rule": "not_null" },
-      { "field": "total_amount",   "rule": "greater_than", "value": 0 }
-    ],
-    "human_review_on_failure": false
-  }'
-```
-
----
-
-## Response — All Rules Passed
-
-```json
-{
-  "document_id": "doc_abc123",
-  "status": "passed",
-  "results": [
-    { "field": "invoice_number", "rule": "not_null", "passed": true },
-    { "field": "total_amount",   "rule": "greater_than", "passed": true }
-  ],
-  "human_review_required": false,
-  "completed_at": "2026-06-12T10:00:06Z"
-}
-```
-
-## Response — Validation Failed with Human Review
-
-```json
-{
-  "document_id": "doc_abc123",
-  "status": "pending_review",
-  "results": [
-    { "field": "invoice_number", "rule": "not_null",     "passed": true },
-    { "field": "tax_number",     "rule": "regex",        "passed": false, "message": "Value '123' does not match pattern '^3[0-9]{14}$'" }
-  ],
-  "human_review_required": true,
-  "review_url": "https://app.alqari.sa/review/doc_abc123",
-  "completed_at": "2026-06-12T10:00:06Z"
-}
-```
-
----
-
-## Human Review
-
-When `human_review_required` is `true`:
-
-1. A task is created in the ALQari Review Dashboard
-2. A reviewer can inspect the document, correct extracted values, and approve or reject
-3. A webhook fires when the review is complete — see [Webhooks](webhooks.md)
-
-Reviewers access the task at the `review_url` in the response.
-
----
-
-## Get Validation Result
-
-```bash
-curl https://api.alqari.sa/v1/documents/doc_abc123/validation \
+curl -X POST "https://api.alqari.sa/services/ai-validate?document_id=doc_9xKpL3mN&rules_text=1.%20Check%20required%20fields%0A2.%20Validate%20dates" \
   -H "Authorization: Bearer $ALQARI_API_KEY"
 ```
 
 ---
 
-## Validation Statuses
+## Response
 
-| Status           | Description                                        |
-|------------------|----------------------------------------------------|
-| `passed`         | All rules passed                                   |
-| `failed`         | One or more rules failed, no human review          |
-| `pending_review` | Sent for human review                              |
-| `reviewed`       | Human review completed                             |
+```json
+{
+  "document_id": "doc_9xKpL3mN",
+  "overall_verdict": "FAIL",
+  "summary": {
+    "total_rules": 2,
+    "passed": 1,
+    "failed": 1,
+    "warnings": 0,
+    "not_applicable": 0
+  },
+  "results": [
+    {
+      "rule_number": 1,
+      "rule_text": "Check required fields",
+      "verdict": "PASS",
+      "calculation": null,
+      "detail": "All required fields present.",
+      "evidence": "Invoice No: INV-0001",
+      "bounding_boxes": [
+        { "page": 1, "bbox": [[72,118],[268,118],[268,138],[72,138]] }
+      ]
+    },
+    {
+      "rule_number": 2,
+      "rule_text": "Validate dates",
+      "verdict": "FAIL",
+      "calculation": null,
+      "detail": "Issue date is after due date.",
+      "evidence": null,
+      "bounding_boxes": null
+    }
+  ],
+  "credits_consumed": 1,
+  "remaining_credits": 4976
+}
+```
+
+---
+
+## Verdicts
+
+Per-rule `verdict` values are:
+
+| Verdict | Meaning |
+|---------|---------|
+| `PASS` | The rule is satisfied |
+| `FAIL` | The rule is not satisfied |
+| `WARNING` | The rule is partially satisfied or uncertain |
+| `N/A` | The rule does not apply to this document |
+
+`overall_verdict` summarizes the run. `summary` is an object with counts: `total_rules`, `passed`, `failed`, `warnings`, and `not_applicable`.
+
+---
+
+## Bounding Boxes
+
+`bounding_boxes` may be `null` or `[]`, so do not assume every rule has coordinates. Coordinate elements are 4-point polygons, like OCR regions.
+
+---
+
+## Notes
+
+- Validation runs against a document that has already been processed by OCR.
+- There is no generic field-extraction or custom-schema endpoint in the public API. AI-validate checks rules; it is not structured field extraction.

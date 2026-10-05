@@ -1,15 +1,15 @@
 /**
- * validate-document.js — Run a validation workflow on a document.
+ * validate-document.js — Run rule-based AI validation on a processed document.
  *
  * Usage:
- *   node validate-document.js <document_id>
+ *   node validate-document.js <document_id> ["<newline-numbered rules>"]
  *
  * Environment variables:
  *   ALQARI_API_KEY   Required.
- *   ALQARI_BASE_URL  Optional. Defaults to https://api.alqari.sa/v1
+ *   ALQARI_BASE_URL  Optional. Defaults to https://api.alqari.sa
  */
 
-const BASE_URL = (process.env.ALQARI_BASE_URL ?? "https://api.alqari.sa/v1").replace(/\/$/, "");
+const BASE_URL = (process.env.ALQARI_BASE_URL ?? "https://api.alqari.sa").replace(/\/$/, "");
 const API_KEY  = process.env.ALQARI_API_KEY;
 
 if (!API_KEY) {
@@ -19,30 +19,27 @@ if (!API_KEY) {
 
 const documentId = process.argv[2];
 if (!documentId) {
-  console.error("Usage: node validate-document.js <document_id>");
+  console.error("Usage: node validate-document.js <document_id> [rules_text]");
   process.exit(1);
 }
 
-// Edit these rules to match your validation requirements
-const RULES = [
-  { field: "invoice_number", rule: "not_null" },
-  { field: "total_amount",   rule: "greater_than", value: 0 },
-  { field: "invoice_date",   rule: "not_null" },
-  { field: "tax_number",     rule: "regex", pattern: "^3[0-9]{14}$" },
-];
+// Newline-numbered rules. Edit to match your validation requirements.
+const DEFAULT_RULES_TEXT = [
+  "1. All required fields are present.",
+  "2. The total matches the sum of line items.",
+  "3. The issue date is not after the due date.",
+].join("\n");
+
+const rulesText = process.argv[3] ?? DEFAULT_RULES_TEXT;
 
 console.log(`Running validation on document: ${documentId}`);
 
-const resp = await fetch(`${BASE_URL}/documents/${documentId}/validation`, {
+// ai-validate takes document_id and rules_text as query parameters.
+const params = new URLSearchParams({ document_id: documentId, rules_text: rulesText });
+
+const resp = await fetch(`${BASE_URL}/services/ai-validate?${params}`, {
   method: "POST",
-  headers: {
-    Authorization: `Bearer ${API_KEY}`,
-    "Content-Type": "application/json",
-  },
-  body: JSON.stringify({
-    rules: RULES,
-    human_review_on_failure: false,
-  }),
+  headers: { Authorization: `Bearer ${API_KEY}` },
 });
 
 if (!resp.ok) {
@@ -53,11 +50,4 @@ if (!resp.ok) {
 
 const data = await resp.json();
 console.log(JSON.stringify(data, null, 2));
-
-if (data.status === "passed") {
-  console.log("\n✓ Validation passed.");
-} else if (data.status === "pending_review") {
-  console.log(`\n⚠ Sent for human review: ${data.review_url}`);
-} else {
-  console.log(`\n✗ Validation status: ${data.status}`);
-}
+console.log(`\nOverall verdict: ${data.overall_verdict}`);

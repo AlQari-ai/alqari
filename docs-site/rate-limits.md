@@ -1,80 +1,47 @@
 # Rate Limits
 
-ALQari enforces rate limits to ensure fair usage and platform stability.
+ALQari does not currently publish specific rate limits, and responses do **not** include guaranteed `X-RateLimit-*` or `Retry-After` headers. Excessive request volumes may be throttled.
+
+> This behavior may change in the future. For current, authoritative details, see the official API docs: [alqari.sa/api-docs](https://alqari.sa/api-docs).
 
 ---
 
-## Default Limits
+## Recommended Client Behavior
 
-| Plan         | Requests / minute | Uploads / day | Pages / month |
-|--------------|--------------------|---------------|---------------|
-| Free         | 20                 | 50            | 500           |
-| Starter      | 100                | 500           | 10,000        |
-| Growth       | 500                | 5,000         | 100,000       |
-| Enterprise   | Custom             | Custom        | Custom        |
+Because throttling can occur under excessive load, design clients to be resilient:
 
-Limits apply per API key.
-
----
-
-## Rate Limit Headers
-
-Every API response includes rate limit information:
-
-```
-X-RateLimit-Limit: 100
-X-RateLimit-Remaining: 87
-X-RateLimit-Reset: 1749726060
-```
-
-| Header                  | Description                                          |
-|-------------------------|------------------------------------------------------|
-| `X-RateLimit-Limit`     | Max requests allowed in the current window           |
-| `X-RateLimit-Remaining` | Requests remaining in the current window             |
-| `X-RateLimit-Reset`     | Unix timestamp when the window resets                |
-| `Retry-After`           | Seconds to wait before retrying (only on 429)        |
-
----
-
-## Handling Rate Limits
-
-When you exceed a limit you receive:
-
-```
-HTTP/1.1 429 Too Many Requests
-Retry-After: 30
-```
-
-```json
-{
-  "error": {
-    "code": "rate_limit_exceeded",
-    "message": "Rate limit exceeded. Retry after 30 seconds.",
-    "status": 429
-  }
-}
-```
-
-### Recommended Retry Strategy
-
-Use **exponential backoff with jitter**:
+- Use **exponential backoff with jitter** when a request fails transiently.
+- Do not assume `Retry-After` is present — fall back to your own backoff schedule.
+- Avoid tight retry loops; cap the number of retries.
 
 ```python
 import time, random, requests
 
-def request_with_backoff(url, headers, max_retries=5):
+def request_with_backoff(method, url, max_retries=5, **kwargs):
     for attempt in range(max_retries):
-        resp = requests.get(url, headers=headers)
-        if resp.status_code != 429:
+        resp = requests.request(method, url, **kwargs)
+        if resp.status_code < 429:
             return resp
+        # No guaranteed Retry-After header — use our own backoff
         retry_after = int(resp.headers.get("Retry-After", 2 ** attempt))
-        jitter = random.uniform(0, 1)
-        time.sleep(retry_after + jitter)
+        time.sleep(retry_after + random.uniform(0, 1))
     return resp
 ```
 
 ---
 
-## Increasing Limits
+## File & Workflow Limits
 
-To increase your rate limits, upgrade your plan at [alqari.sa/pricing](https://alqari.sa/pricing) or contact **sales@alqari.sa** for Enterprise options.
+| Limit | Value |
+|-------|-------|
+| Upload file-size limit (`upload-ocr`) | 20 MB |
+| Oversized file (`upload-ocr`) | `FILE_TOO_LARGE` / HTTP 413 |
+| Workflow trigger file-count | Default max 20 files, hard max 100 files |
+
+The 20 MB limit is the `upload-ocr` file size. The 20/100 file limits are workflow-trigger file counts — not an `upload-ocr` batch limit.
+
+---
+
+## Billing
+
+Processing responses return `credits_consumed` and `remaining_credits` to reflect credit usage. For current pricing, see [alqari.sa/pricing](https://alqari.sa/pricing) or contact **sales@alqari.sa** for Enterprise options.

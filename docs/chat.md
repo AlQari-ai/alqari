@@ -1,13 +1,17 @@
-# Chat with Documents
+# Document Q&A
 
-Ask natural language questions over any document that has been processed with OCR. ALQari returns answers with source citations.
+Ask natural-language questions about a document that has been processed for chat.
+
+To enable chat on a document, upload it with `process_for_chat=true` (see [OCR](ocr.md)).
+
+> The public chat response returns an `answer` and token usage only. It does **not** include page citations, source arrays, or bounding-box citations.
 
 ---
 
 ## Endpoint
 
 ```
-POST /documents/{document_id}/chat
+POST /services/chat/{document_id}
 ```
 
 ---
@@ -16,95 +20,55 @@ POST /documents/{document_id}/chat
 
 ```json
 {
-  "message": "ما هو رقم الفاتورة والمبلغ الإجمالي؟",
-  "language": "ar",
-  "conversation_id": "conv_xyz789"
+  "message": "ما إجمالي الفاتورة؟"
 }
 ```
 
-| Field             | Type   | Required | Description                                                       |
-|-------------------|--------|----------|-------------------------------------------------------------------|
-| `message`         | string | Yes      | The question or instruction in Arabic or English                  |
-| `language`        | string | No       | Response language: `ar` or `en`. Default: matches question language |
-| `conversation_id` | string | No       | Reuse a previous conversation for multi-turn context              |
+| Field     | Type   | Required | Description                                      |
+|-----------|--------|----------|--------------------------------------------------|
+| `message` | string | Yes      | The question or instruction in Arabic or English |
 
 ---
 
-## Example — First Turn
+## Example
 
 ```bash
-curl -X POST https://api.alqari.sa/v1/documents/doc_abc123/chat \
+curl -X POST https://api.alqari.sa/services/chat/doc_9xKpL3mN \
   -H "Authorization: Bearer $ALQARI_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{
-    "message": "ما هو رقم الفاتورة والمبلغ الإجمالي؟"
-  }'
+  -d '{ "message": "ما إجمالي الفاتورة؟" }'
 ```
 
 **Response:**
 
 ```json
 {
-  "document_id": "doc_abc123",
-  "conversation_id": "conv_xyz789",
-  "answer": "رقم الفاتورة هو INV-00123 والمبلغ الإجمالي هو 1500 ريال سعودي.",
-  "citations": [
-    {
-      "page": 1,
-      "text": "الرقم: INV-00123\nالمجموع: ١٥٠٠ ريال",
-      "confidence": 0.97
-    }
-  ],
-  "created_at": "2026-06-12T10:01:00Z"
+  "document_id": "doc_9xKpL3mN",
+  "question": "ما إجمالي الفاتورة؟",
+  "answer": "إجمالي الفاتورة هو SAR 124,500.00",
+  "tokens_used": { "input": 812, "output": 24 },
+  "credits_consumed": 1,
+  "remaining_credits": 4975
 }
 ```
 
 ---
 
-## Example — Follow-up Turn (Multi-turn)
+## Response Fields
 
-```bash
-curl -X POST https://api.alqari.sa/v1/documents/doc_abc123/chat \
-  -H "Authorization: Bearer $ALQARI_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "message": "من هو المورد؟",
-    "conversation_id": "conv_xyz789"
-  }'
-```
-
-**Response:**
-
-```json
-{
-  "document_id": "doc_abc123",
-  "conversation_id": "conv_xyz789",
-  "answer": "المورد هو شركة النور التجارية.",
-  "citations": [
-    {
-      "page": 1,
-      "text": "شركة النور التجارية",
-      "confidence": 0.94
-    }
-  ],
-  "created_at": "2026-06-12T10:01:05Z"
-}
-```
-
----
-
-## List Conversations
-
-```bash
-curl https://api.alqari.sa/v1/documents/doc_abc123/chat \
-  -H "Authorization: Bearer $ALQARI_API_KEY"
-```
+| Field | Type | Description |
+|-------|------|-------------|
+| `document_id` | string | The document being queried |
+| `question` | string | The question you asked |
+| `answer` | string | The model's answer |
+| `tokens_used` | object | `{ input, output }` token counts |
+| `credits_consumed` | integer | Credits used by this request |
+| `remaining_credits` | integer | Credits remaining on the account |
 
 ---
 
 ## Notes
 
-- Chat requires OCR to be completed on the document first.
-- `conversation_id` is optional but recommended for multi-turn sessions; it maintains context across messages.
-- The `citations` array points back to the exact text in the document that supports the answer.
+- The document must be uploaded with `process_for_chat=true` to enable chat.
 - Questions can be asked in Arabic or English regardless of the document language.
+- If chat is not yet ready, the API returns the `CHAT_NOT_READY` error code — see [Errors](errors.md).

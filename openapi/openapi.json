@@ -1,27 +1,18 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "ALQari Document Intelligence API",
+    "title": "Qari API",
     "version": "1.0.0",
-    "description": "ALQari is an Arabic-first Document Intelligence API platform for OCR, Arabic handwriting recognition, document extraction, validation workflows, chat with documents, and full-text/semantic search.",
+    "description": "Public subset of the ALQari (Qari) Document Intelligence API, derived mechanically from the backend-generated OpenAPI export. Paths are unversioned. The full, authoritative, always-current reference lives at https://alqari.sa/api-docs.",
     "contact": {
-      "name": "ALQari Developer Support",
-      "url": "https://alqari.sa/developers",
-      "email": "developers@alqari.sa"
-    },
-    "license": {
-      "name": "MIT",
-      "url": "https://opensource.org/licenses/MIT"
+      "name": "ALQari",
+      "url": "https://alqari.sa/api-docs"
     }
   },
   "servers": [
     {
-      "url": "https://api.alqari.sa/v1",
+      "url": "https://api.alqari.sa",
       "description": "Production"
-    },
-    {
-      "url": "https://sandbox.api.alqari.sa/v1",
-      "description": "Sandbox (no billing, 24-hour retention)"
     }
   ],
   "security": [
@@ -29,314 +20,845 @@
       "BearerAuth": []
     }
   ],
-  "tags": [
-    { "name": "Documents",   "description": "Upload and manage documents" },
-    { "name": "OCR",         "description": "Optical Character Recognition" },
-    { "name": "Extraction",  "description": "Structured field extraction" },
-    { "name": "Validation",  "description": "Document validation workflows" },
-    { "name": "Chat",        "description": "Natural language Q&A over documents" },
-    { "name": "Search",      "description": "Full-text and semantic search" },
-    { "name": "Webhooks",    "description": "Real-time event notifications" }
-  ],
   "paths": {
-    "/documents": {
+    "/services/upload-ocr": {
       "post": {
-        "operationId": "uploadDocument",
-        "tags": ["Documents"],
-        "summary": "Upload a document",
+        "tags": [
+          "OCR Services"
+        ],
+        "summary": "Upload & run full OCR pipeline",
+        "description": "Upload a document and run the full OCR pipeline in one step. All output formats (text, layout, HTML, Markdown, blocks) are always processed and stored. The standard text result is returned immediately. Premium outputs (layout, HTML, Markdown, blocks) are accessible via the GET /services/ocr-output/{document_id}/* endpoints and cost additional credits. Supported formats: PDF, images (JPG/PNG/TIFF/BMP/WebP), Office documents (DOCX/DOC/XLSX/XLS/PPTX/PPT), web/structured (HTML/XML/JSON/CSV), and plain text (TXT/MD). Rejects unsupported types (code UNSUPPORTED_FILE_TYPE), empty files (CORRUPTED_FILE), and files larger than the configured limit (FILE_TOO_LARGE) before any billing. Use mode=fast (default) or mode=premium for Groq text refinement — premium and fast cost the same (10 credits/page); if premium refinement is unavailable the request is rejected (PREMIUM_OCR_UNAVAILABLE) rather than silently degraded. Set language to auto (default, auto-detect), ar, or en to hint the OCR engine locale. Optionally file the result under one of your company's departments via department_id.",
+        "operationId": "upload_and_run_ocr_services_upload_ocr_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "skip_vlm",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Skip GPT-4o VLM enrichment for markdown/html (default: on for speed, set false for highest accuracy)",
+              "default": true,
+              "title": "Skip Vlm"
+            },
+            "description": "Skip GPT-4o VLM enrichment for markdown/html (default: on for speed, set false for highest accuracy)"
+          },
+          {
+            "name": "mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/OcrQualityMode",
+              "description": "OCR quality mode: fast (default, no LLM) or premium (Groq text correction). Same price.",
+              "default": "fast"
+            },
+            "description": "OCR quality mode: fast (default, no LLM) or premium (Groq text correction). Same price."
+          },
+          {
+            "name": "language",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "OCR language hint: auto (default, auto-detect), ar, or en. Passed to the OCR engine as a locale.",
+              "default": "auto",
+              "title": "Language"
+            },
+            "description": "OCR language hint: auto (default, auto-detect), ar, or en. Passed to the OCR engine as a locale."
+          },
+          {
+            "name": "department_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional department (owned by your company) to file this document under.",
+              "title": "Department Id"
+            },
+            "description": "Optional department (owned by your company) to file this document under."
+          },
+          {
+            "name": "process_for_chat",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Also index the document for the AI Chatbot (Document Assistant)",
+              "default": false,
+              "title": "Process For Chat"
+            },
+            "description": "Also index the document for the AI Chatbot (Document Assistant)"
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
             "multipart/form-data": {
               "schema": {
-                "type": "object",
-                "required": ["file"],
-                "properties": {
-                  "file":        { "type": "string", "format": "binary" },
-                  "language":    { "type": "string", "enum": ["ar","en","ar+en","ar-hw"], "default": "ar" },
-                  "tags":        { "type": "array",  "items": { "type": "string" } },
-                  "metadata":    { "type": "object", "additionalProperties": true },
-                  "webhook_url": { "type": "string", "format": "uri" }
-                }
+                "$ref": "#/components/schemas/Body_upload_and_run_ocr_services_upload_ocr_post"
               }
             }
           }
         },
         "responses": {
-          "201": { "description": "Document uploaded", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Document" } } } },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "413": { "$ref": "#/components/responses/FileTooLarge" }
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
         }
-      },
+      }
+    },
+    "/services/ocr-output/{document_id}/ocr": {
       "get": {
-        "operationId": "listDocuments",
-        "tags": ["Documents"],
-        "summary": "List documents",
+        "tags": [
+          "OCR Output Retrieval"
+        ],
+        "summary": "Get OCR field extraction — raw blocks with bboxes  [costs ocr_extraction credits]",
+        "description": "Retrieve individual text blocks with bounding boxes, page numbers and confidence scores. This is the field extraction output. Costs 25 credits per page.",
+        "operationId": "get_ocr_text_services_ocr_output__document_id__ocr_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
-          { "$ref": "#/components/parameters/limit" },
-          { "$ref": "#/components/parameters/cursor" }
+          {
+            "name": "document_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Document Id"
+            }
+          }
         ],
         "responses": {
-          "200": { "description": "Paginated list of documents", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DocumentList" } } } },
-          "401": { "$ref": "#/components/responses/Unauthorized" }
-        }
-      }
-    },
-    "/documents/{document_id}": {
-      "parameters": [{ "$ref": "#/components/parameters/document_id" }],
-      "get": {
-        "operationId": "getDocument",
-        "tags": ["Documents"],
-        "summary": "Get document details",
-        "responses": {
-          "200": { "description": "Document details", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Document" } } } },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "404": { "$ref": "#/components/responses/NotFound" }
-        }
-      },
-      "delete": {
-        "operationId": "deleteDocument",
-        "tags": ["Documents"],
-        "summary": "Delete a document",
-        "responses": {
-          "204": { "description": "Document deleted" },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "404": { "$ref": "#/components/responses/NotFound" }
-        }
-      }
-    },
-    "/documents/{document_id}/ocr": {
-      "parameters": [{ "$ref": "#/components/parameters/document_id" }],
-      "post": {
-        "operationId": "runOcr",
-        "tags": ["OCR"],
-        "summary": "Run OCR on a document",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "language":           { "type": "string", "enum": ["ar","en","ar+en","ar-hw"], "default": "ar" },
-                  "detect_orientation": { "type": "boolean", "default": true },
-                  "handwriting":        { "type": "boolean", "default": false },
-                  "pages":              { "type": "array", "items": { "type": "integer" } }
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
           }
-        },
-        "responses": {
-          "202": { "description": "OCR job started", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OcrResult" } } } },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "404": { "$ref": "#/components/responses/NotFound" }
-        }
-      },
-      "get": {
-        "operationId": "getOcrResult",
-        "tags": ["OCR"],
-        "summary": "Get OCR result",
-        "responses": {
-          "200": { "description": "OCR result", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OcrResult" } } } },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "404": { "$ref": "#/components/responses/NotFound" }
         }
       }
     },
-    "/documents/{document_id}/extraction": {
-      "parameters": [{ "$ref": "#/components/parameters/document_id" }],
-      "post": {
-        "operationId": "runExtraction",
-        "tags": ["Extraction"],
-        "summary": "Run structured field extraction",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "schema":    { "type": "array", "items": { "$ref": "#/components/schemas/ExtractionField" } },
-                  "schema_id": { "type": "string" }
+    "/services/ocr-output/{document_id}/text": {
+      "get": {
+        "tags": [
+          "OCR Output Retrieval"
+        ],
+        "summary": "Get concatenated plain text (included in the 10-credit OCR cost)",
+        "description": "Retrieve all OCR text blocks joined into a single readable plain-text string, ordered by page then top-to-bottom position. Covered by the 10 credits per page already charged at upload — no additional charge.",
+        "operationId": "get_ocr_plain_text_services_ocr_output__document_id__text_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "document_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Document Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
           }
-        },
-        "responses": {
-          "202": { "description": "Extraction job started", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ExtractionResult" } } } },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "404": { "$ref": "#/components/responses/NotFound" },
-          "409": { "$ref": "#/components/responses/Conflict" }
-        }
-      },
-      "get": {
-        "operationId": "getExtractionResult",
-        "tags": ["Extraction"],
-        "summary": "Get extraction result",
-        "responses": {
-          "200": { "description": "Extraction result", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ExtractionResult" } } } },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "404": { "$ref": "#/components/responses/NotFound" }
         }
       }
     },
-    "/documents/{document_id}/validation": {
-      "parameters": [{ "$ref": "#/components/parameters/document_id" }],
-      "post": {
-        "operationId": "runValidation",
-        "tags": ["Validation"],
-        "summary": "Run validation workflow",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "rules":                   { "type": "array", "items": { "$ref": "#/components/schemas/ValidationRule" } },
-                  "human_review_on_failure": { "type": "boolean", "default": false }
+    "/services/ocr-output/{document_id}/layout": {
+      "get": {
+        "tags": [
+          "OCR Output Retrieval"
+        ],
+        "summary": "Get structured layout JSON  [costs ocr_layout credits]",
+        "description": "Retrieve the structured layout extraction (paragraphs, tables, figures with coordinates). Costs 15 credits per page of the document.",
+        "operationId": "get_ocr_layout_services_ocr_output__document_id__layout_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "document_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Document Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
           }
-        },
-        "responses": {
-          "200": { "description": "Validation result", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ValidationResult" } } } },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "404": { "$ref": "#/components/responses/NotFound" }
-        }
-      },
-      "get": {
-        "operationId": "getValidationResult",
-        "tags": ["Validation"],
-        "summary": "Get validation result",
-        "responses": {
-          "200": { "description": "Validation result", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ValidationResult" } } } },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "404": { "$ref": "#/components/responses/NotFound" }
         }
       }
     },
-    "/documents/{document_id}/chat": {
-      "parameters": [{ "$ref": "#/components/parameters/document_id" }],
+    "/services/ocr-output/{document_id}/markdown": {
+      "get": {
+        "tags": [
+          "OCR Output Retrieval"
+        ],
+        "summary": "Get Markdown output (included in the 10-credit OCR cost)",
+        "description": "Retrieve the document converted to Markdown format. Covered by the 10 credits per page already charged at upload — no additional charge.",
+        "operationId": "get_ocr_markdown_services_ocr_output__document_id__markdown_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "document_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Document Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/services/ocr-output/{document_id}/html": {
+      "get": {
+        "tags": [
+          "OCR Output Retrieval"
+        ],
+        "summary": "Get HTML output (included in the 10-credit OCR cost)",
+        "description": "Retrieve the document converted to formatted HTML. Covered by the 10 credits per page already charged at upload — no additional charge.",
+        "operationId": "get_ocr_html_services_ocr_output__document_id__html_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "document_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Document Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/services/ocr-output/{document_id}/blocks": {
+      "get": {
+        "tags": [
+          "OCR Output Retrieval"
+        ],
+        "summary": "Get blocks HTML viewer (included in the 10-credit OCR cost)",
+        "description": "Retrieve an interactive HTML viewer showing the document's detected blocks with bounding-box overlays. Covered by the 10 credits per page already charged at upload.",
+        "operationId": "get_ocr_blocks_services_ocr_output__document_id__blocks_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "document_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Document Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/services/ai-validate": {
       "post": {
-        "operationId": "chatWithDocument",
-        "tags": ["Chat"],
-        "summary": "Ask a question about a document",
+        "tags": [
+          "Validation"
+        ],
+        "summary": "AI document validation",
+        "description": "Validate an OCR'd document against compliance rules using Groq (text mode). Pass the `document_id` of a document that has already been processed by OCR. Returns per-rule verdicts with bounding boxes highlighting the relevant regions.",
+        "operationId": "ai_validate_document_services_ai_validate_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "rules_text",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Numbered or bulleted list of compliance rules",
+              "title": "Rules Text"
+            },
+            "description": "Numbered or bulleted list of compliance rules"
+          },
+          {
+            "name": "document_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "ID of an already OCR'd document",
+              "title": "Document Id"
+            },
+            "description": "ID of an already OCR'd document"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AIValidateDocumentResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/services/chat/{document_id}": {
+      "post": {
+        "tags": [
+          "Chat"
+        ],
+        "summary": "Chat with a document",
+        "description": "Send a natural-language question about a previously uploaded document and receive an AI-generated answer based on the document's content.",
+        "operationId": "chat_assistant_services_chat__document_id__post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "document_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Document Id"
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "required": ["message"],
-                "properties": {
-                  "message":         { "type": "string" },
-                  "language":        { "type": "string", "enum": ["ar","en"] },
-                  "conversation_id": { "type": "string" }
-                }
+                "$ref": "#/components/schemas/Body_chat_assistant_services_chat__document_id__post"
               }
             }
           }
         },
         "responses": {
-          "200": { "description": "Chat response", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ChatResponse" } } } },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "404": { "$ref": "#/components/responses/NotFound" },
-          "409": { "$ref": "#/components/responses/Conflict" }
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatAssistantResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
         }
       }
     },
-    "/search": {
+    "/workflows/{workflow_id}/run-upload": {
       "post": {
-        "operationId": "searchDocuments",
-        "tags": ["Search"],
-        "summary": "Search across documents",
+        "tags": [
+          "Workflow Maker"
+        ],
+        "summary": "Run a workflow by uploading document(s) (API key)",
+        "description": "Execute a workflow whose trigger is Upload Document by uploading one or more files. Send a single `file` and/or one or more `files` parts (multipart form-data). Repeating `file` (the canvas multi-select picker) is accepted. In Swagger, use **file** for one document or add multiple **files** rows. Leave unused file fields blank. Default: each file starts its own run (own pass/fail, own human review). Set `related_files` on the Upload node to keep every file in one run (required for Batch Document Processing). One run returns a run object; several runs return `{ related_files, run_count, runs }`. **Requires an API key** (`Authorization: Bearer qari_...`). The key's company_id scopes the workflow and billing. Create keys via `POST /api-keys` (Admin JWT).",
+        "operationId": "run_workflow_upload_workflows__workflow_id__run_upload_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "workflow_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Workflow Id"
+            }
+          }
+        ],
         "requestBody": {
-          "required": true,
           "content": {
-            "application/json": {
+            "multipart/form-data": {
               "schema": {
-                "type": "object",
-                "required": ["query"],
-                "properties": {
-                  "query":   { "type": "string" },
-                  "mode":    { "type": "string", "enum": ["fulltext","semantic","hybrid"], "default": "semantic" },
-                  "limit":   { "type": "integer", "minimum": 1, "maximum": 100, "default": 10 },
-                  "cursor":  { "type": "string" },
-                  "filters": {
-                    "type": "object",
-                    "properties": {
-                      "tags":         { "type": "array", "items": { "type": "string" } },
-                      "document_ids": { "type": "array", "items": { "type": "string" } },
-                      "date_range": {
-                        "type": "object",
-                        "properties": {
-                          "from": { "type": "string", "format": "date" },
-                          "to":   { "type": "string", "format": "date" }
-                        }
-                      }
+                "$ref": "#/components/schemas/Body_run_workflow_upload_workflows__workflow_id__run_upload_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/RunResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/MultiRunResponse"
                     }
-                  }
+                  ],
+                  "title": "Response Run Workflow Upload Workflows  Workflow Id  Run Upload Post"
                 }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workflows/{workflow_id}/test-run-upload/async": {
+      "post": {
+        "tags": [
+          "Workflow Maker"
+        ],
+        "summary": "Start an async Test Run by uploading document(s) (returns 202)",
+        "description": "Durably accept a builder Test Run and return immediately with HTTP 202 and the new `run_id` — the REAL workflow engine executes later in the durable worker, NOT inside this request. Same Test Run rules as the synchronous endpoint: a **Draft** or **Active** workflow is allowed (an archived/inactive one is rejected with 409 `WORKFLOW_NOT_ACTIVE`), the graph must pass validation, and billing eligibility is pre-checked (the worker re-checks and owns all billing). On success exactly one `pending` run and one durable workflow job exist and the uploaded input is durably stored; the client then polls `GET /workflows/runs/{run_id}`. Testing does NOT activate the workflow.",
+        "operationId": "test_run_workflow_upload_async_workflows__workflow_id__test_run_upload_async_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "workflow_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Workflow Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_test_run_workflow_upload_async_workflows__workflow_id__test_run_upload_async_post"
               }
             }
           }
         },
         "responses": {
-          "200": { "description": "Search results", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SearchResults" } } } },
-          "401": { "$ref": "#/components/responses/Unauthorized" }
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AsyncRunAcceptedResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
         }
       }
     },
-    "/webhooks": {
+    "/workflows/runs/{run_id}": {
       "get": {
-        "operationId": "listWebhooks",
-        "tags": ["Webhooks"],
-        "summary": "List registered webhooks",
+        "tags": [
+          "Workflow Maker"
+        ],
+        "summary": "Get a workflow run",
+        "description": "Returns a single run including per-node results.",
+        "operationId": "get_run_workflows_runs__run_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
         "responses": {
-          "200": { "description": "List of webhooks" },
-          "401": { "$ref": "#/components/responses/Unauthorized" }
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
         }
-      },
+      }
+    },
+    "/auth/login": {
       "post": {
-        "operationId": "createWebhook",
-        "tags": ["Webhooks"],
-        "summary": "Create a webhook",
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Login",
+        "description": "Authenticate with work email or phone number and password. Returns JWT access and refresh tokens.",
+        "operationId": "login_auth_login_post",
         "requestBody": {
-          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "required": ["url","events"],
-                "properties": {
-                  "url":    { "type": "string", "format": "uri" },
-                  "events": { "type": "array", "items": { "type": "string" } },
-                  "secret": { "type": "string" }
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-keys": {
+      "get": {
+        "tags": [
+          "API Keys"
+        ],
+        "summary": "List API keys",
+        "description": "Returns all API keys for the company (prefix only, never the full key).",
+        "operationId": "list_api_keys_api_keys_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiKeyListResponse"
                 }
               }
             }
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "API Keys"
+        ],
+        "summary": "Generate API key",
+        "description": "Generate a new API key for programmatic / SDK access. **Admin only.**\n\nThe full key is returned **once** in this response and cannot be retrieved again. Store it securely.\n\nThe key inherits the company's billing plan — no plan = no access.",
+        "operationId": "create_api_key_api_keys_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateApiKeyRequest"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
-          "201": { "description": "Webhook created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Webhook" } } } },
-          "401": { "$ref": "#/components/responses/Unauthorized" }
-        }
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateApiKeyResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
-    "/webhooks/{webhook_id}": {
-      "parameters": [
-        { "name": "webhook_id", "in": "path", "required": true, "schema": { "type": "string" } }
-      ],
+    "/api-keys/{key_id}": {
       "delete": {
-        "operationId": "deleteWebhook",
-        "tags": ["Webhooks"],
-        "summary": "Delete a webhook",
+        "tags": [
+          "API Keys"
+        ],
+        "summary": "Revoke API key",
+        "description": "Permanently revoke an API key. **Admin only.** The key will stop working immediately.",
+        "operationId": "revoke_api_key_api_keys__key_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "key_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Key Id"
+            }
+          }
+        ],
         "responses": {
-          "204": { "description": "Webhook deleted" },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/app__modules__identity__interface__api__schemas__MessageResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
         }
       }
     }
@@ -346,174 +868,978 @@
       "BearerAuth": {
         "type": "http",
         "scheme": "bearer",
-        "description": "Pass your ALQari API key as a Bearer token"
+        "description": "API key (starts with qari_) or session access token."
       }
-    },
-    "parameters": {
-      "document_id": {
-        "name": "document_id",
-        "in": "path",
-        "required": true,
-        "schema": { "type": "string" }
-      },
-      "limit": {
-        "name": "limit",
-        "in": "query",
-        "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 }
-      },
-      "cursor": {
-        "name": "cursor",
-        "in": "query",
-        "schema": { "type": "string" }
-      }
-    },
-    "responses": {
-      "BadRequest":   { "description": "Bad request",    "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
-      "Unauthorized": { "description": "Unauthorized",   "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
-      "NotFound":     { "description": "Not found",      "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
-      "Conflict":     { "description": "Conflict",       "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
-      "FileTooLarge": { "description": "File too large", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
     },
     "schemas": {
-      "Error": {
-        "type": "object",
+      "AIBoundingBox": {
         "properties": {
-          "error": {
-            "type": "object",
-            "properties": {
-              "code":       { "type": "string" },
-              "message":    { "type": "string" },
-              "status":     { "type": "integer" },
-              "request_id": { "type": "string" }
-            }
+          "page": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Page",
+            "description": "1-based page number"
+          },
+          "bbox": {
+            "title": "Bbox",
+            "description": "Bounding box polygon — same structure as OCR output bbox (4 corner points)."
           }
+        },
+        "type": "object",
+        "required": [
+          "page",
+          "bbox"
+        ],
+        "title": "AIBoundingBox",
+        "description": "A single highlighted region tied to a validation finding."
+      },
+      "AIValidateDocumentResponse": {
+        "properties": {
+          "document_id": {
+            "type": "string",
+            "title": "Document Id",
+            "description": "Document UUID"
+          },
+          "overall_verdict": {
+            "type": "string",
+            "title": "Overall Verdict",
+            "description": "Overall result: PASS | WARNING | FAIL"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/AIValidationSummary",
+            "description": "Aggregate counts"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/AIValidationRuleResult"
+            },
+            "type": "array",
+            "title": "Results",
+            "description": "Per-rule results"
+          }
+        },
+        "type": "object",
+        "required": [
+          "document_id",
+          "overall_verdict",
+          "summary",
+          "results"
+        ],
+        "title": "AIValidateDocumentResponse",
+        "description": "AI validation result."
+      },
+      "AIValidationRuleResult": {
+        "properties": {
+          "rule_number": {
+            "type": "integer",
+            "title": "Rule Number",
+            "description": "Rule sequence number"
+          },
+          "rule_text": {
+            "type": "string",
+            "title": "Rule Text",
+            "description": "Original rule text"
+          },
+          "verdict": {
+            "$ref": "#/components/schemas/AIVerdict",
+            "description": "AI verdict for this rule"
+          },
+          "calculation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Calculation",
+            "description": "Calculation details (if applicable)"
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail",
+            "description": "Explanation of the verdict"
+          },
+          "evidence": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence",
+            "description": "Supporting evidence from the document"
+          },
+          "bounding_boxes": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/AIBoundingBox"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bounding Boxes",
+            "description": "Regions where the violating/suspicious evidence appears (FAIL and WARNING only)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "rule_number",
+          "rule_text",
+          "verdict",
+          "detail"
+        ],
+        "title": "AIValidationRuleResult",
+        "description": "Result of a single AI-evaluated rule."
+      },
+      "AIValidationSummary": {
+        "properties": {
+          "total_rules": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Total Rules",
+            "description": "Total rules evaluated"
+          },
+          "passed": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Passed",
+            "description": "Rules that passed"
+          },
+          "failed": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Failed",
+            "description": "Rules that failed"
+          },
+          "warnings": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Warnings",
+            "description": "Rules with warnings"
+          },
+          "not_applicable": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Not Applicable",
+            "description": "Rules not applicable to this document"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total_rules",
+          "passed",
+          "failed",
+          "warnings",
+          "not_applicable"
+        ],
+        "title": "AIValidationSummary",
+        "description": "Aggregate counts for AI validation."
+      },
+      "AIVerdict": {
+        "type": "string",
+        "enum": [
+          "PASS",
+          "FAIL",
+          "WARNING",
+          "N/A"
+        ],
+        "title": "AIVerdict",
+        "description": "Verdict returned by AI validation."
+      },
+      "ApiKeyItem": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "prefix": {
+            "type": "string",
+            "title": "Prefix",
+            "description": "First 12 chars of the key"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active"
+          },
+          "last_used_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Used At"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "prefix",
+          "name",
+          "is_active",
+          "created_at"
+        ],
+        "title": "ApiKeyItem",
+        "description": "An API key in the list (prefix only, never the full key)."
+      },
+      "ApiKeyListResponse": {
+        "properties": {
+          "keys": {
+            "items": {
+              "$ref": "#/components/schemas/ApiKeyItem"
+            },
+            "type": "array",
+            "title": "Keys"
+          }
+        },
+        "type": "object",
+        "required": [
+          "keys"
+        ],
+        "title": "ApiKeyListResponse",
+        "description": "List of API keys for the company."
+      },
+      "AsyncRunAcceptedResponse": {
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "workflow_id": {
+            "type": "string",
+            "title": "Workflow Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "default": "pending"
+          },
+          "execution_mode": {
+            "type": "string",
+            "title": "Execution Mode",
+            "default": "test"
+          }
+        },
+        "type": "object",
+        "required": [
+          "run_id",
+          "workflow_id"
+        ],
+        "title": "AsyncRunAcceptedResponse",
+        "description": "Returned (HTTP 202) when an async Test Run is durably accepted for later\nexecution by the worker. Carries only what the client needs to transition to\npolling ``GET /workflows/runs/{run_id}`` — never fabricated results/progress."
+      },
+      "Body_chat_assistant_services_chat__document_id__post": {
+        "properties": {
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "title": "Body_chat_assistant_services_chat__document_id__post"
+      },
+      "Body_run_workflow_upload_workflows__workflow_id__run_upload_post": {
+        "properties": {
+          "file": {
+            "items": {
+              "type": "string",
+              "contentMediaType": "application/octet-stream"
+            },
+            "type": "array",
+            "title": "File",
+            "default": []
+          },
+          "files": {
+            "items": {
+              "type": "string",
+              "contentMediaType": "application/octet-stream"
+            },
+            "type": "array",
+            "title": "Files",
+            "default": []
+          }
+        },
+        "type": "object",
+        "title": "Body_run_workflow_upload_workflows__workflow_id__run_upload_post"
+      },
+      "Body_test_run_workflow_upload_async_workflows__workflow_id__test_run_upload_async_post": {
+        "properties": {
+          "file": {
+            "items": {
+              "type": "string",
+              "contentMediaType": "application/octet-stream"
+            },
+            "type": "array",
+            "title": "File",
+            "default": []
+          },
+          "files": {
+            "items": {
+              "type": "string",
+              "contentMediaType": "application/octet-stream"
+            },
+            "type": "array",
+            "title": "Files",
+            "default": []
+          }
+        },
+        "type": "object",
+        "title": "Body_test_run_workflow_upload_async_workflows__workflow_id__test_run_upload_async_post"
+      },
+      "Body_upload_and_run_ocr_services_upload_ocr_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_and_run_ocr_services_upload_ocr_post"
+      },
+      "ChatAssistantResponse": {
+        "properties": {
+          "document_id": {
+            "type": "string",
+            "title": "Document Id",
+            "description": "Document UUID"
+          },
+          "question": {
+            "type": "string",
+            "title": "Question",
+            "description": "User's question"
+          },
+          "answer": {
+            "type": "string",
+            "title": "Answer",
+            "description": "AI-generated answer"
+          },
+          "tokens_used": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Tokens Used",
+            "description": "Token usage breakdown: {input, output}"
+          },
+          "credits_consumed": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Credits Consumed",
+            "description": "Credits deducted for this question (5 per question)"
+          },
+          "remaining_credits": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remaining Credits",
+            "description": "Credits remaining in current billing period"
+          }
+        },
+        "type": "object",
+        "required": [
+          "document_id",
+          "question",
+          "answer",
+          "tokens_used"
+        ],
+        "title": "ChatAssistantResponse",
+        "description": "AI answer to a document question."
+      },
+      "CreateApiKeyRequest": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Name",
+            "description": "Label for this key (e.g. 'Production', 'CI/CD')"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "CreateApiKeyRequest",
+        "description": "Request to create a new API key.",
+        "example": {
+          "name": "Production"
         }
       },
-      "Document": {
-        "type": "object",
+      "CreateApiKeyResponse": {
         "properties": {
-          "document_id":   { "type": "string" },
-          "status":        { "type": "string", "enum": ["uploaded","processing","completed","failed"] },
-          "filename":      { "type": "string" },
-          "size_bytes":    { "type": "integer" },
-          "mime_type":     { "type": "string" },
-          "page_count":    { "type": "integer" },
-          "language_hint": { "type": "string" },
-          "tags":          { "type": "array", "items": { "type": "string" } },
-          "metadata":      { "type": "object", "additionalProperties": true },
-          "created_at":    { "type": "string", "format": "date-time" }
-        }
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "Key UUID"
+          },
+          "key": {
+            "type": "string",
+            "title": "Key",
+            "description": "Full API key — store securely, shown once only"
+          },
+          "prefix": {
+            "type": "string",
+            "title": "Prefix",
+            "description": "Key prefix (e.g. qari_a1b2c3d)"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "key",
+          "prefix",
+          "name",
+          "created_at"
+        ],
+        "title": "CreateApiKeyResponse",
+        "description": "Response containing the newly created API key. The full key is shown ONCE."
       },
-      "DocumentList": {
-        "type": "object",
+      "CreditUsageBreakdown": {
         "properties": {
-          "data":        { "type": "array", "items": { "$ref": "#/components/schemas/Document" } },
-          "next_cursor": { "type": "string", "nullable": true },
-          "has_more":    { "type": "boolean" }
-        }
+          "ocr_pages": {
+            "type": "integer",
+            "title": "Ocr Pages",
+            "default": 0
+          },
+          "ocr_credits": {
+            "type": "integer",
+            "title": "Ocr Credits",
+            "default": 0
+          },
+          "llm_input_tokens": {
+            "type": "integer",
+            "title": "Llm Input Tokens",
+            "default": 0
+          },
+          "llm_output_tokens": {
+            "type": "integer",
+            "title": "Llm Output Tokens",
+            "default": 0
+          },
+          "llm_credits": {
+            "type": "integer",
+            "title": "Llm Credits",
+            "default": 0
+          },
+          "credits_consumed": {
+            "type": "integer",
+            "title": "Credits Consumed",
+            "default": 0
+          },
+          "remaining_credits": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remaining Credits"
+          }
+        },
+        "type": "object",
+        "title": "CreditUsageBreakdown"
       },
-      "OcrResult": {
-        "type": "object",
+      "HTTPValidationError": {
         "properties": {
-          "document_id":   { "type": "string" },
-          "status":        { "type": "string", "enum": ["processing","completed","failed"] },
-          "language":      { "type": "string" },
-          "pages":         { "type": "array", "items": { "$ref": "#/components/schemas/OcrPage" } },
-          "total_pages":   { "type": "integer" },
-          "completed_at":  { "type": "string", "format": "date-time", "nullable": true }
-        }
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
       },
-      "OcrPage": {
-        "type": "object",
+      "LoginRequest": {
         "properties": {
-          "page":            { "type": "integer" },
-          "text":            { "type": "string" },
-          "confidence":      { "type": "number" },
-          "word_count":      { "type": "integer" },
-          "bounding_boxes":  { "type": "array", "items": { "type": "object" } }
-        }
+          "email_or_phone": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 3,
+            "title": "Email Or Phone",
+            "description": "Registered work email or phone number"
+          },
+          "password": {
+            "type": "string",
+            "title": "Password",
+            "description": "Account password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email_or_phone",
+          "password"
+        ],
+        "title": "LoginRequest",
+        "description": "Authenticate an existing user.",
+        "examples": [
+          {
+            "email_or_phone": "ahmed@acme.com",
+            "password": "Str0ng!Pass"
+          },
+          {
+            "email": "ahmed@acme.com",
+            "password": "Str0ng!Pass"
+          },
+          {
+            "email_or_phone": "966564408950",
+            "password": "Str0ng!Pass"
+          }
+        ]
       },
-      "ExtractionField": {
-        "type": "object",
-        "required": ["name","type"],
+      "MultiRunResponse": {
         "properties": {
-          "name":        { "type": "string" },
-          "type":        { "type": "string", "enum": ["string","number","date","boolean","array","address","id_number"] },
-          "description": { "type": "string" }
-        }
+          "related_files": {
+            "type": "boolean",
+            "title": "Related Files",
+            "default": false
+          },
+          "run_count": {
+            "type": "integer",
+            "title": "Run Count"
+          },
+          "runs": {
+            "items": {
+              "$ref": "#/components/schemas/RunResponse"
+            },
+            "type": "array",
+            "title": "Runs"
+          }
+        },
+        "type": "object",
+        "required": [
+          "run_count",
+          "runs"
+        ],
+        "title": "MultiRunResponse",
+        "description": "Returned when one request starts more than one run (default per-file fan-out)."
       },
-      "ExtractionResult": {
-        "type": "object",
+      "NodeRunResponse": {
         "properties": {
-          "document_id":  { "type": "string" },
-          "status":       { "type": "string", "enum": ["processing","completed","failed"] },
-          "fields":       { "type": "object", "additionalProperties": { "type": "object" } },
-          "completed_at": { "type": "string", "format": "date-time", "nullable": true }
-        }
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "node_id": {
+            "type": "string",
+            "title": "Node Id"
+          },
+          "node_type": {
+            "type": "string",
+            "title": "Node Type"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "output": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "node_id",
+          "node_type",
+          "status"
+        ],
+        "title": "NodeRunResponse"
       },
-      "ValidationRule": {
-        "type": "object",
-        "required": ["field","rule"],
-        "properties": {
-          "field":   { "type": "string" },
-          "rule":    { "type": "string" },
-          "value":   {},
-          "pattern": { "type": "string" },
-          "values":  { "type": "array" }
-        }
+      "OcrQualityMode": {
+        "type": "string",
+        "enum": [
+          "fast",
+          "premium"
+        ],
+        "title": "OcrQualityMode",
+        "description": "OCR processing quality mode."
       },
-      "ValidationResult": {
-        "type": "object",
+      "RunResponse": {
         "properties": {
-          "document_id":           { "type": "string" },
-          "status":                { "type": "string", "enum": ["passed","failed","pending_review","reviewed"] },
-          "results":               { "type": "array", "items": { "type": "object" } },
-          "human_review_required": { "type": "boolean" },
-          "review_url":            { "type": "string", "format": "uri", "nullable": true },
-          "completed_at":          { "type": "string", "format": "date-time" }
-        }
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "workflow_id": {
+            "type": "string",
+            "title": "Workflow Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "execution_mode": {
+            "type": "string",
+            "title": "Execution Mode",
+            "default": "manual"
+          },
+          "document_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Document Id"
+          },
+          "trigger_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trigger Type"
+          },
+          "input": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input"
+          },
+          "output": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "billing": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CreditUsageBreakdown"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "node_runs": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/NodeRunResponse"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Node Runs"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "workflow_id",
+          "status",
+          "created_at"
+        ],
+        "title": "RunResponse"
       },
-      "ChatResponse": {
-        "type": "object",
+      "TokenResponse": {
         "properties": {
-          "document_id":     { "type": "string" },
-          "conversation_id": { "type": "string" },
-          "answer":          { "type": "string" },
-          "citations":       { "type": "array", "items": { "type": "object" } },
-          "created_at":      { "type": "string", "format": "date-time" }
-        }
+          "access_token": {
+            "type": "string",
+            "title": "Access Token",
+            "description": "Short-lived JWT access token"
+          },
+          "refresh_token": {
+            "type": "string",
+            "title": "Refresh Token",
+            "description": "Long-lived refresh token (7 days)"
+          },
+          "token_type": {
+            "type": "string",
+            "const": "bearer",
+            "title": "Token Type",
+            "description": "Token type (always 'bearer')",
+            "default": "bearer"
+          },
+          "user_name": {
+            "type": "string",
+            "title": "User Name",
+            "description": "Full name of the authenticated user"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email",
+            "description": "Work email of the authenticated user"
+          },
+          "phone_number": {
+            "type": "string",
+            "title": "Phone Number",
+            "description": "Phone number of the authenticated user"
+          }
+        },
+        "type": "object",
+        "required": [
+          "access_token",
+          "refresh_token",
+          "user_name",
+          "email",
+          "phone_number"
+        ],
+        "title": "TokenResponse",
+        "description": "JWT token pair returned on login / refresh."
       },
-      "SearchResult": {
-        "type": "object",
+      "ValidationError": {
         "properties": {
-          "document_id": { "type": "string" },
-          "filename":    { "type": "string" },
-          "score":       { "type": "number" },
-          "snippet":     { "type": "string" },
-          "page":        { "type": "integer" },
-          "tags":        { "type": "array", "items": { "type": "string" } }
-        }
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
       },
-      "SearchResults": {
-        "type": "object",
+      "app__modules__identity__interface__api__schemas__MessageResponse": {
         "properties": {
-          "query":       { "type": "string" },
-          "mode":        { "type": "string" },
-          "results":     { "type": "array", "items": { "$ref": "#/components/schemas/SearchResult" } },
-          "total":       { "type": "integer" },
-          "has_more":    { "type": "boolean" },
-          "next_cursor": { "type": "string", "nullable": true }
-        }
-      },
-      "Webhook": {
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "description": "Human-readable status message"
+          }
+        },
         "type": "object",
-        "properties": {
-          "webhook_id": { "type": "string" },
-          "url":        { "type": "string", "format": "uri" },
-          "events":     { "type": "array", "items": { "type": "string" } },
-          "status":     { "type": "string", "enum": ["active","inactive","failed"] },
-          "created_at": { "type": "string", "format": "date-time" }
-        }
+        "required": [
+          "message"
+        ],
+        "title": "MessageResponse",
+        "description": "Generic acknowledgment response."
       }
     }
   }

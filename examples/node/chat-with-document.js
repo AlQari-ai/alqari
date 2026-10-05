@@ -1,15 +1,17 @@
 /**
  * chat-with-document.js — Ask a question about a document using natural language.
  *
+ * The document must have been uploaded with process_for_chat=true.
+ *
  * Usage:
  *   node chat-with-document.js <document_id> "<question>"
  *
  * Environment variables:
  *   ALQARI_API_KEY   Required.
- *   ALQARI_BASE_URL  Optional. Defaults to https://api.alqari.sa/v1
+ *   ALQARI_BASE_URL  Optional. Defaults to https://api.alqari.sa
  */
 
-const BASE_URL = (process.env.ALQARI_BASE_URL ?? "https://api.alqari.sa/v1").replace(/\/$/, "");
+const BASE_URL = (process.env.ALQARI_BASE_URL ?? "https://api.alqari.sa").replace(/\/$/, "");
 const API_KEY  = process.env.ALQARI_API_KEY;
 
 if (!API_KEY) {
@@ -32,7 +34,7 @@ if (!message) {
 console.log(`Document: ${documentId}`);
 console.log(`Question: ${message}\n`);
 
-const resp = await fetch(`${BASE_URL}/documents/${documentId}/chat`, {
+const resp = await fetch(`${BASE_URL}/services/chat/${documentId}`, {
   method: "POST",
   headers: {
     Authorization: `Bearer ${API_KEY}`,

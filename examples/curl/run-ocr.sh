@@ -1,41 +1,37 @@
 #!/usr/bin/env bash
-# run-ocr.sh — Run OCR on an uploaded document
+# run-ocr.sh — Retrieve structured OCR output for a document
 #
 # Usage:
 #   export ALQARI_API_KEY="your_api_key_here"
-#   bash run-ocr.sh <document_id> [language]
+#   bash run-ocr.sh <document_id> [format]
+#
+# format (optional): ocr (default) | text | layout
 #
 # Examples:
-#   bash run-ocr.sh doc_abc123
-#   bash run-ocr.sh doc_abc123 ar-hw    # Arabic handwriting
-#   bash run-ocr.sh doc_abc123 ar+en    # Mixed Arabic/English
+#   bash run-ocr.sh doc_9xKpL3mN            # structured OCR regions (JSON)
+#   bash run-ocr.sh doc_9xKpL3mN text       # plain text
+#   bash run-ocr.sh doc_9xKpL3mN layout     # layout analysis (JSON)
 
 set -euo pipefail
 
-BASE_URL="${ALQARI_BASE_URL:-https://api.alqari.sa/v1}"
-DOCUMENT_ID="${1:?Usage: bash run-ocr.sh <document_id> [language]}"
-LANGUAGE="${2:-ar}"
+BASE_URL="${ALQARI_BASE_URL:-https://api.alqari.sa}"
+DOCUMENT_ID="${1:?Usage: bash run-ocr.sh <document_id> [format]}"
+FORMAT="${2:-ocr}"
 
 if [[ -z "${ALQARI_API_KEY:-}" ]]; then
   echo "Error: ALQARI_API_KEY environment variable is not set." >&2
   exit 1
 fi
 
-HANDWRITING="false"
-if [[ "$LANGUAGE" == "ar-hw" ]]; then
-  HANDWRITING="true"
+echo "Fetching OCR output ($FORMAT) for document: $DOCUMENT_ID"
+
+if [[ "$FORMAT" == "text" ]]; then
+  curl --fail-with-body \
+    --url "${BASE_URL}/services/ocr-output/${DOCUMENT_ID}/text" \
+    --header "Authorization: Bearer ${ALQARI_API_KEY}"
+else
+  curl --fail-with-body \
+    --url "${BASE_URL}/services/ocr-output/${DOCUMENT_ID}/${FORMAT}" \
+    --header "Authorization: Bearer ${ALQARI_API_KEY}" \
+    | python3 -m json.tool
 fi
-
-echo "Running OCR on document: $DOCUMENT_ID (language: $LANGUAGE)"
-
-curl --fail-with-body \
-  --request POST \
-  --url "${BASE_URL}/documents/${DOCUMENT_ID}/ocr" \
-  --header "Authorization: Bearer ${ALQARI_API_KEY}" \
-  --header "Content-Type: application/json" \
-  --data "{
-    \"language\": \"${LANGUAGE}\",
-    \"detect_orientation\": true,
-    \"handwriting\": ${HANDWRITING}
-  }" \
-  | python3 -m json.tool

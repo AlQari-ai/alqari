@@ -1,21 +1,23 @@
 /**
- * upload-document.js — Upload a document to ALQari.
+ * upload-document.js — Upload a document to ALQari and run OCR in one step.
  *
  * Usage:
  *   node upload-document.js /path/to/document.pdf
  *
  * Environment variables:
  *   ALQARI_API_KEY   Required.
- *   ALQARI_BASE_URL  Optional. Defaults to https://api.alqari.sa/v1
- *   ALQARI_LANGUAGE  Optional. Defaults to "ar"
+ *   ALQARI_BASE_URL  Optional. Defaults to https://api.alqari.sa
+ *   ALQARI_LANGUAGE  Optional. Defaults to "auto" (auto | ar | en)
+ *   ALQARI_MODE      Optional. Processing tier (fast | premium)
  */
 
 import fs from "fs";
 import path from "path";
 import FormData from "form-data";
 
-const BASE_URL  = (process.env.ALQARI_BASE_URL  ?? "https://api.alqari.sa/v1").replace(/\/$/, "");
-const LANGUAGE  = process.env.ALQARI_LANGUAGE   ?? "ar";
+const BASE_URL  = (process.env.ALQARI_BASE_URL  ?? "https://api.alqari.sa").replace(/\/$/, "");
+const LANGUAGE  = process.env.ALQARI_LANGUAGE   ?? "auto";
+const MODE      = process.env.ALQARI_MODE;
 const API_KEY   = process.env.ALQARI_API_KEY;
 
 if (!API_KEY) {
@@ -36,11 +38,13 @@ if (!fs.existsSync(filePath)) {
 
 const form = new FormData();
 form.append("file", fs.createReadStream(filePath), path.basename(filePath));
-form.append("language", LANGUAGE);
+
+const params = new URLSearchParams({ language: LANGUAGE });
+if (MODE) params.set("mode", MODE);
 
 console.log(`Uploading: ${filePath}`);
 
-const resp = await fetch(`${BASE_URL}/documents`, {
+const resp = await fetch(`${BASE_URL}/services/upload-ocr?${params}`, {
   method: "POST",
   headers: {
     Authorization: `Bearer ${API_KEY}`,

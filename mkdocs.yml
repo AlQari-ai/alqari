@@ -2,7 +2,8 @@ site_name: ALQari Developer Docs
 site_url: https://alqari-ai.github.io/alqari-developer-hub/
 site_description: >-
   Official developer documentation for ALQari — Arabic-first Document
-  Intelligence APIs for OCR, extraction, validation, chat, and search.
+  Intelligence APIs for OCR, structured OCR, layout analysis, validation,
+  document Q&A, and workflow automation.
 site_author: ALQari
 
 repo_name: alqari/alqari-developer-hub
@@ -92,10 +93,8 @@ nav:
   - API Overview: api-overview.md
   - Upload Documents: upload-documents.md
   - OCR: ocr.md
-  - Extraction: extraction.md
   - Validation: validation.md
   - Chat: chat.md
-  - Search: search.md
   - Webhooks: webhooks.md
   - Errors: errors.md
   - Rate Limits: rate-limits.md

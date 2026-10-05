@@ -1,6 +1,6 @@
 # Python Examples
 
-Self-contained Python scripts for every ALQari API operation.
+Self-contained Python scripts for the ALQari API.
 
 ## Requirements
 
@@ -13,26 +13,34 @@ pip install -r requirements.txt
 ## Configuration
 
 ```bash
-export ALQARI_API_KEY="your_api_key_here"
-export ALQARI_BASE_URL="https://api.alqari.sa/v1"   # optional, defaults to production
+export ALQARI_API_KEY="qari_your_api_key_here"
+export ALQARI_BASE_URL="https://api.alqari.sa"   # optional, this is the default
 ```
 
 ## Scripts
 
 | Script | Description |
 |--------|-------------|
-| `upload_document.py`   | Upload a document file |
-| `run_ocr.py`           | Run OCR on a document |
-| `run_extraction.py`    | Extract structured fields |
-| `validate_document.py` | Run a validation workflow |
-| `chat_with_document.py`| Chat with a document |
+| `upload_document.py`   | Upload a document and run OCR (`POST /services/upload-ocr`) |
+| `get_ocr_output.py`    | Fetch OCR output (`GET /services/ocr-output/{id}/ocr\|text\|layout`) |
+| `validate_document.py` | Run rule-based validation (`POST /services/ai-validate`) |
+| `chat_with_document.py`| Ask a question about a document (`POST /services/chat/{id}`) |
 
 ## Usage
 
 ```bash
+# Upload + OCR → returns document_id
 python upload_document.py /path/to/document.pdf
-python run_ocr.py doc_abc123
-python run_extraction.py doc_abc123
-python validate_document.py doc_abc123
-python chat_with_document.py doc_abc123 "ما هو رقم الفاتورة؟"
+
+# Retrieve structured OCR regions (or: text | layout)
+python get_ocr_output.py doc_9xKpL3mN
+python get_ocr_output.py doc_9xKpL3mN text
+
+# Validate against your own rules
+python validate_document.py doc_9xKpL3mN
+
+# Ask a question (upload with process_for_chat=true first)
+python chat_with_document.py doc_9xKpL3mN "ما إجمالي الفاتورة؟"
 ```
+
+> The authoritative API reference is at [alqari.sa/api-docs](https://alqari.sa/api-docs).

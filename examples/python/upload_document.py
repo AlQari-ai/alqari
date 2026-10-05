@@ -1,13 +1,14 @@
 """
-upload_document.py — Upload a document to ALQari.
+upload_document.py — Upload a document to ALQari and run OCR in one step.
 
 Usage:
     python upload_document.py /path/to/document.pdf
 
 Environment variables:
-    ALQARI_API_KEY   Required. Your ALQari API key.
-    ALQARI_BASE_URL  Optional. Defaults to https://api.alqari.sa/v1
-    ALQARI_LANGUAGE  Optional. OCR language hint (ar, en, ar+en, ar-hw). Defaults to ar.
+    ALQARI_API_KEY   Required. Your ALQari API key (starts with qari_).
+    ALQARI_BASE_URL  Optional. Defaults to https://api.alqari.sa
+    ALQARI_LANGUAGE  Optional. Language hint (auto, ar, en). Defaults to auto.
+    ALQARI_MODE      Optional. Processing tier (fast, premium).
 """
 
 import os
@@ -15,8 +16,9 @@ import sys
 import json
 import requests
 
-BASE_URL = os.environ.get("ALQARI_BASE_URL", "https://api.alqari.sa/v1").rstrip("/")
-LANGUAGE = os.environ.get("ALQARI_LANGUAGE", "ar")
+BASE_URL = os.environ.get("ALQARI_BASE_URL", "https://api.alqari.sa").rstrip("/")
+LANGUAGE = os.environ.get("ALQARI_LANGUAGE", "auto")
+MODE = os.environ.get("ALQARI_MODE")
 
 
 def get_api_key() -> str:
@@ -31,13 +33,17 @@ def upload_document(file_path: str) -> dict:
     api_key = get_api_key()
     headers = {"Authorization": f"Bearer {api_key}"}
 
+    params = {"language": LANGUAGE}
+    if MODE:
+        params["mode"] = MODE
+
     with open(file_path, "rb") as f:
         resp = requests.post(
-            f"{BASE_URL}/documents",
+            f"{BASE_URL}/services/upload-ocr",
             headers=headers,
+            params=params,
             files={"file": (os.path.basename(file_path), f)},
-            data={"language": LANGUAGE},
-            timeout=60,
+            timeout=120,
         )
 
     resp.raise_for_status()

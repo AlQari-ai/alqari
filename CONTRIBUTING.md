@@ -49,7 +49,7 @@ Thank you for helping improve the ALQari developer experience!
 ```bash
 cd examples/python
 pip install -r requirements.txt
-export ALQARI_API_KEY=your_sandbox_key
+export ALQARI_API_KEY=qari_your_api_key
 python upload_document.py
 ```
 
@@ -58,7 +58,7 @@ python upload_document.py
 ```bash
 cd examples/node
 npm install
-export ALQARI_API_KEY=your_sandbox_key
+export ALQARI_API_KEY=qari_your_api_key
 node upload-document.js
 ```
 
@@ -66,11 +66,11 @@ node upload-document.js
 
 ```bash
 cd examples/curl
-export ALQARI_API_KEY=your_sandbox_key
+export ALQARI_API_KEY=qari_your_api_key
 bash upload-document.sh
 ```
 
-Use the **sandbox** base URL (`https://sandbox.api.alqari.sa/v1`) during development.
+The base URL is `https://api.alqari.sa` (paths are unversioned). Test against your own account with a real API key.
 
 ---
 
@@ -89,15 +89,15 @@ Use [Conventional Commits](https://www.conventionalcommits.org/):
 
 ```
 feat(examples): add PHP upload example
-fix(docs): correct webhook signature header name
-docs(quickstart): clarify sandbox vs production URL
+fix(docs): correct OCR output path
+docs(quickstart): clarify upload-and-OCR flow
 ```
 
 ---
 
 ## Pull Request Checklist
 
-- [ ] Examples run without errors against the sandbox
+- [ ] Examples run without errors against the live API
 - [ ] No real API keys in code or git history
 - [ ] Markdown passes the lint check (`markdownlint`)
 - [ ] OpenAPI changes pass `spectral lint` (if applicable)

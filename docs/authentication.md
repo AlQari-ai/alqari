@@ -8,8 +8,10 @@ All ALQari API requests require authentication using a **Bearer token** (your AP
 
 1. Sign in to [alqari.sa/dashboard](https://alqari.sa/dashboard)
 2. Navigate to **API Keys**
-3. Click **Create new key**
-4. Copy the key immediately — it is only shown once
+3. Click **Create new key** (requires an organization Admin)
+4. Copy the key immediately — the full key is shown only once
+
+API keys start with `qari_` followed by 40 hex characters. They are stored hashed after creation, have **no scopes**, and **no create-time expiration**.
 
 ---
 
@@ -24,7 +26,7 @@ Authorization: Bearer YOUR_API_KEY
 ### cURL
 
 ```bash
-curl https://api.alqari.sa/v1/documents \
+curl https://api.alqari.sa/services/ocr-output/doc_9xKpL3mN/text \
   -H "Authorization: Bearer $ALQARI_API_KEY"
 ```
 
@@ -34,7 +36,10 @@ curl https://api.alqari.sa/v1/documents \
 import os, requests
 
 headers = {"Authorization": f"Bearer {os.environ['ALQARI_API_KEY']}"}
-resp = requests.get("https://api.alqari.sa/v1/documents", headers=headers)
+resp = requests.get(
+    "https://api.alqari.sa/services/ocr-output/doc_9xKpL3mN/text",
+    headers=headers,
+)
 ```
 
 ### Node.js
@@ -43,36 +48,54 @@ resp = requests.get("https://api.alqari.sa/v1/documents", headers=headers)
 const headers = {
   Authorization: `Bearer ${process.env.ALQARI_API_KEY}`
 };
-const resp = await fetch("https://api.alqari.sa/v1/documents", { headers });
+const resp = await fetch(
+  "https://api.alqari.sa/services/ocr-output/doc_9xKpL3mN/text",
+  { headers }
+);
 ```
 
 ---
 
-## Key Scopes
+## Alternative: Session Token
 
-When creating a key you can restrict its permissions:
+For end-user apps, sign in via `POST /auth/login` with `email_or_phone` and `password` to receive an `access_token`, used in the `Authorization` header the same way:
 
-| Scope              | Access                                  |
-|--------------------|-----------------------------------------|
-| `documents:read`   | List and retrieve documents             |
-| `documents:write`  | Upload and delete documents             |
-| `ocr:run`          | Run OCR jobs                            |
-| `extraction:run`   | Run extraction jobs                     |
-| `validation:run`   | Run validation workflows                |
-| `chat:run`         | Use chat API                            |
-| `search:run`       | Use search API                          |
-| `webhooks:manage`  | Create, update, delete webhooks         |
-| `*`                | Full access (default for new keys)      |
+```bash
+curl -X POST https://api.alqari.sa/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{ "email_or_phone": "you@company.sa", "password": "••••••••" }'
+```
+
+A successful response returns: `access_token`, `refresh_token`, `token_type`, `user_name`, `email`, `phone_number`.
+
+Session tokens are short-lived — use a `qari_` key for long-running server integrations.
+
+---
+
+## Managing API Keys
+
+Creating, listing, and revoking API keys requires an organization Admin.
+
+| Method | Path | Summary |
+|--------|------|---------|
+| `POST` | `/api-keys` | Create a key (body: `{ "name": "..." }`) |
+| `GET`  | `/api-keys` | List keys (metadata only, never the secret) |
+| `DELETE` | `/api-keys/{id}` | Revoke a key |
+
+```bash
+curl -X POST https://api.alqari.sa/api-keys \
+  -H "Authorization: Bearer <JWT>" \
+  -H "Content-Type: application/json" \
+  -d '{ "name": "Production server" }'
+```
 
 ---
 
 ## Key Rotation
 
-Rotate your keys regularly:
-
 1. Create a new key in the dashboard
 2. Update your application to use the new key
-3. Delete the old key
+3. Delete (revoke) the old key
 
 To revoke a compromised key immediately, go to **Dashboard → API Keys → Revoke**.
 
@@ -80,18 +103,18 @@ To revoke a compromised key immediately, go to **Dashboard → API Keys → Revo
 
 ## Security Best Practices
 
-- **Never** hardcode API keys in source code.
+- **Never** hardcode API keys in source code or commit them to public repositories.
 - Use environment variables or a secrets manager (AWS Secrets Manager, HashiCorp Vault, etc.).
 - Use the [`.env.example`](../.env.example) pattern for local development.
-- Apply least-privilege scopes to production keys.
+- Treat your API key like a password. If it leaks, revoke it immediately and issue a new one.
 
 ---
 
 ## Authentication Errors
 
-| HTTP Status | Code                  | Meaning                              |
-|-------------|-----------------------|--------------------------------------|
-| `401`       | `unauthorized`        | Missing or invalid API key           |
-| `403`       | `forbidden`           | Key lacks the required scope         |
+| HTTP Status | Meaning                              |
+|-------------|--------------------------------------|
+| `401`       | Missing or invalid credentials       |
+| `422`       | Malformed request body               |
 
-See [Errors](errors.md) for full error response format.
+Domain errors carry a stable machine-readable `code` — branch on `code`, not the message text. See [Errors](errors.md) for the full error response format.

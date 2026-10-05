@@ -1,141 +1,67 @@
 # Webhooks
 
-Webhooks let ALQari push real-time event notifications to your server so you don't need to poll for job status.
+ALQari delivers workflow results to your own HTTPS endpoint by adding a **Webhook Output node** inside a workflow. There is no standalone webhook-registration REST endpoint — webhooks are configured as part of a workflow.
 
 ---
 
-## Endpoint
+## How It Works
 
-```
-POST /webhooks
-```
+Add a Webhook Output node to a workflow. When the workflow runs, ALQari sends an HTTP `POST` with a JSON body to your endpoint.
 
----
-
-## Supported Events
-
-| Event                          | Fired When                                         |
-|--------------------------------|----------------------------------------------------|
-| `document.uploaded`            | Document upload is complete                        |
-| `document.ocr.completed`       | OCR job finished successfully                      |
-| `document.ocr.failed`          | OCR job failed                                     |
-| `document.extraction.completed`| Extraction job finished successfully               |
-| `document.extraction.failed`   | Extraction job failed                              |
-| `document.validation.completed`| Validation result is ready                         |
-| `document.validation.reviewed` | Human review of validation is complete             |
-| `document.deleted`             | Document was deleted                               |
+| Property | Detail |
+|----------|--------|
+| Method | HTTP `POST`, JSON body |
+| Timeout | 30 seconds |
+| Redirects | Disabled |
+| Destination | Public HTTPS URL, validated before delivery |
+| Success | Considered delivered when the response status is `< 400` |
 
 ---
 
-## Register a Webhook
+## Payload
 
-```bash
-curl -X POST https://api.alqari.sa/v1/webhooks \
-  -H "Authorization: Bearer $ALQARI_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "url": "https://your-server.example.com/alqari/webhook",
-    "events": ["document.ocr.completed", "document.extraction.completed"],
-    "secret": "your_webhook_signing_secret"
-  }'
 ```
+POST https://your-app.com/webhooks/alqari
+Content-Type: application/json
 
-**Response:**
-
-```json
 {
-  "webhook_id": "wh_xyz789",
-  "url": "https://your-server.example.com/alqari/webhook",
-  "events": ["document.ocr.completed", "document.extraction.completed"],
-  "status": "active",
-  "created_at": "2026-06-12T10:00:00Z"
+  "workflow_id": "wf_7dR2",
+  "run_id": "run_5Qm1",
+  "status": "completed"
 }
 ```
 
----
-
-## Webhook Payload
-
-ALQari sends a `POST` request to your URL with a JSON body:
-
-```json
-{
-  "event": "document.ocr.completed",
-  "webhook_id": "wh_xyz789",
-  "document_id": "doc_abc123",
-  "timestamp": "2026-06-12T10:00:03Z",
-  "data": {
-    "status": "completed",
-    "page_count": 3,
-    "language": "ar"
-  }
-}
-```
+Run statuses: `pending`, `running`, `completed`, `failed`, `paused`.
 
 ---
 
-## Verifying Webhook Signatures
+## Receiver Best Practices
 
-ALQari signs every webhook request with an HMAC-SHA256 signature. Verify it to ensure the payload came from ALQari:
+- Use a public **HTTPS** endpoint.
+- Design your receiver to be **idempotent** — the same run may be delivered more than once.
+- Validate incoming requests with your own controls (e.g., a shared secret or allowlist).
+- Respond quickly with a `2xx` status and process the payload asynchronously.
 
-```
-X-ALQari-Signature: sha256=<hex_digest>
-X-ALQari-Timestamp: 1749726003
-```
-
-### Python Verification Example
-
-```python
-import hashlib, hmac, os, time
-
-def verify_webhook(payload_bytes: bytes, signature_header: str, timestamp_header: str, secret: str) -> bool:
-    # Reject requests older than 5 minutes
-    if abs(time.time() - int(timestamp_header)) > 300:
-        return False
-    message = timestamp_header.encode() + b"." + payload_bytes
-    expected = "sha256=" + hmac.new(secret.encode(), message, hashlib.sha256).hexdigest()
-    return hmac.compare_digest(expected, signature_header)
-```
-
-### Node.js Verification Example
+### Minimal Express.js receiver
 
 ```js
-import crypto from "crypto";
+import express from "express";
 
-function verifyWebhook(payloadBuffer, signatureHeader, timestampHeader, secret) {
-  if (Math.abs(Date.now() / 1000 - Number(timestampHeader)) > 300) return false;
-  const message = `${timestampHeader}.${payloadBuffer.toString()}`;
-  const expected = "sha256=" + crypto.createHmac("sha256", secret).update(message).digest("hex");
-  return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signatureHeader));
-}
+const app = express();
+
+app.post("/webhooks/alqari", express.json(), (req, res) => {
+  const { workflow_id, run_id, status } = req.body;
+  console.log("Workflow event:", workflow_id, run_id, status);
+
+  // Respond quickly; process asynchronously.
+  res.sendStatus(200);
+});
+
+app.listen(3000);
 ```
 
 ---
 
-## Retries
+## Related
 
-If your endpoint returns a non-`2xx` response, ALQari retries the webhook with exponential backoff:
-
-| Attempt | Delay   |
-|---------|---------|
-| 1       | 30 s    |
-| 2       | 5 min   |
-| 3       | 30 min  |
-| 4       | 2 h     |
-| 5       | 8 h     |
-
-After 5 failed attempts the webhook is marked `failed` and no further retries are made.
-
----
-
-## List and Delete Webhooks
-
-```bash
-# List
-curl https://api.alqari.sa/v1/webhooks \
-  -H "Authorization: Bearer $ALQARI_API_KEY"
-
-# Delete
-curl -X DELETE https://api.alqari.sa/v1/webhooks/wh_xyz789 \
-  -H "Authorization: Bearer $ALQARI_API_KEY"
-```
+- Run a workflow and track its status → see the Workflows section in [API Overview](api-overview.md).

@@ -1,8 +1,8 @@
 {
   "info": {
-    "_postman_id": "alqari-developer-hub-v1",
+    "_postman_id": "alqari-developer-hub",
     "name": "ALQari API",
-    "description": "ALQari Document Intelligence API — OCR, extraction, validation, chat, and search for Arabic and English documents.\n\nSet the `ALQARI_API_KEY` variable in the ALQari environment before running requests.",
+    "description": "ALQari Document Intelligence API — Arabic-first OCR, structured OCR, layout analysis, validation, and Document Q&A.\n\nSelect the ALQari environment and set `ALQARI_API_KEY` (starts with qari_) before running requests. Paths are unversioned. The authoritative reference is https://alqari.sa/api-docs.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -18,22 +18,22 @@
   "variable": [],
   "item": [
     {
-      "name": "Documents",
+      "name": "Services",
       "item": [
         {
-          "name": "Upload Document",
+          "name": "Upload & OCR",
           "event": [
             {
               "listen": "test",
               "script": {
+                "type": "text/javascript",
                 "exec": [
                   "var json = pm.response.json();",
                   "if (json.document_id) {",
                   "    pm.environment.set('DOCUMENT_ID', json.document_id);",
                   "    console.log('DOCUMENT_ID set to:', json.document_id);",
                   "}"
-                ],
-                "type": "text/javascript"
+                ]
               }
             }
           ],
@@ -47,143 +47,72 @@
                   "key": "file",
                   "type": "file",
                   "src": "",
-                  "description": "Select a PDF or image file from your local machine"
-                },
-                {
-                  "key": "language",
-                  "value": "ar",
-                  "type": "text",
-                  "description": "ar | en | ar+en | ar-hw"
+                  "description": "Select a supported document file (PDF, image, DOCX, TXT, …). Max 20 MB."
                 }
               ]
             },
             "url": {
-              "raw": "{{ALQARI_BASE_URL}}/documents",
+              "raw": "{{ALQARI_BASE_URL}}/services/upload-ocr?mode=fast&language=auto&process_for_chat=false",
               "host": ["{{ALQARI_BASE_URL}}"],
-              "path": ["documents"]
+              "path": ["services", "upload-ocr"],
+              "query": [
+                { "key": "skip_vlm", "value": "true", "disabled": true },
+                { "key": "mode", "value": "fast", "description": "fast | premium" },
+                { "key": "language", "value": "auto", "description": "auto | ar | en" },
+                { "key": "department_id", "value": "", "disabled": true },
+                { "key": "process_for_chat", "value": "false", "description": "Set true to enable Document Q&A later" }
+              ]
             },
-            "description": "Upload a document. Automatically saves the returned document_id as DOCUMENT_ID environment variable."
-          }
-        },
-        {
-          "name": "List Documents",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{ALQARI_BASE_URL}}/documents?limit=20",
-              "host": ["{{ALQARI_BASE_URL}}"],
-              "path": ["documents"],
-              "query": [{ "key": "limit", "value": "20" }]
-            }
-          }
-        },
-        {
-          "name": "Get Document",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{ALQARI_BASE_URL}}/documents/{{DOCUMENT_ID}}",
-              "host": ["{{ALQARI_BASE_URL}}"],
-              "path": ["documents", "{{DOCUMENT_ID}}"]
-            }
-          }
-        },
-        {
-          "name": "Delete Document",
-          "request": {
-            "method": "DELETE",
-            "header": [],
-            "url": {
-              "raw": "{{ALQARI_BASE_URL}}/documents/{{DOCUMENT_ID}}",
-              "host": ["{{ALQARI_BASE_URL}}"],
-              "path": ["documents", "{{DOCUMENT_ID}}"]
-            }
-          }
+            "description": "Upload a file and run OCR in one step. Returns document_id, text, and output URLs."
+          },
+          "response": []
         }
       ]
     },
     {
-      "name": "OCR",
+      "name": "OCR Output",
       "item": [
         {
-          "name": "Run OCR",
-          "request": {
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"language\": \"ar\",\n  \"detect_orientation\": true,\n  \"handwriting\": false\n}"
-            },
-            "url": {
-              "raw": "{{ALQARI_BASE_URL}}/documents/{{DOCUMENT_ID}}/ocr",
-              "host": ["{{ALQARI_BASE_URL}}"],
-              "path": ["documents", "{{DOCUMENT_ID}}", "ocr"]
-            },
-            "description": "Run OCR on the uploaded document. Use language=ar-hw for Arabic handwriting."
-          }
-        },
-        {
-          "name": "Get OCR Result",
+          "name": "Get OCR Text",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{ALQARI_BASE_URL}}/documents/{{DOCUMENT_ID}}/ocr",
+              "raw": "{{ALQARI_BASE_URL}}/services/ocr-output/{{DOCUMENT_ID}}/text",
               "host": ["{{ALQARI_BASE_URL}}"],
-              "path": ["documents", "{{DOCUMENT_ID}}", "ocr"]
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Extraction",
-      "item": [
-        {
-          "name": "Run Extraction (pre-built schema)",
-          "request": {
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"schema_id\": \"invoice\"\n}"
+              "path": ["services", "ocr-output", "{{DOCUMENT_ID}}", "text"]
             },
-            "url": {
-              "raw": "{{ALQARI_BASE_URL}}/documents/{{DOCUMENT_ID}}/extraction",
-              "host": ["{{ALQARI_BASE_URL}}"],
-              "path": ["documents", "{{DOCUMENT_ID}}", "extraction"]
-            }
-          }
+            "description": "Retrieve the full extracted text as plain text."
+          },
+          "response": []
         },
         {
-          "name": "Run Extraction (custom schema)",
-          "request": {
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"schema\": [\n    { \"name\": \"invoice_number\", \"type\": \"string\" },\n    { \"name\": \"invoice_date\",   \"type\": \"date\" },\n    { \"name\": \"total_amount\",   \"type\": \"number\" },\n    { \"name\": \"vendor_name\",    \"type\": \"string\" }\n  ]\n}"
-            },
-            "url": {
-              "raw": "{{ALQARI_BASE_URL}}/documents/{{DOCUMENT_ID}}/extraction",
-              "host": ["{{ALQARI_BASE_URL}}"],
-              "path": ["documents", "{{DOCUMENT_ID}}", "extraction"]
-            }
-          }
-        },
-        {
-          "name": "Get Extraction Result",
+          "name": "Get Structured OCR",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{ALQARI_BASE_URL}}/documents/{{DOCUMENT_ID}}/extraction",
+              "raw": "{{ALQARI_BASE_URL}}/services/ocr-output/{{DOCUMENT_ID}}/ocr",
               "host": ["{{ALQARI_BASE_URL}}"],
-              "path": ["documents", "{{DOCUMENT_ID}}", "extraction"]
-            }
-          }
+              "path": ["services", "ocr-output", "{{DOCUMENT_ID}}", "ocr"]
+            },
+            "description": "Retrieve structured OCR regions (text, confidence, 4-point bbox, page)."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Layout Analysis",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{ALQARI_BASE_URL}}/services/ocr-output/{{DOCUMENT_ID}}/layout",
+              "host": ["{{ALQARI_BASE_URL}}"],
+              "path": ["services", "ocr-output", "{{DOCUMENT_ID}}", "layout"]
+            },
+            "description": "Retrieve layout analysis (blocks, tables, figures, page sizes)."
+          },
+          "response": []
         }
       ]
     },
@@ -191,137 +120,47 @@
       "name": "Validation",
       "item": [
         {
-          "name": "Run Validation",
+          "name": "Validate Document",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"rules\": [\n    { \"field\": \"invoice_number\", \"rule\": \"not_null\" },\n    { \"field\": \"total_amount\",   \"rule\": \"greater_than\", \"value\": 0 },\n    { \"field\": \"tax_number\",     \"rule\": \"regex\", \"pattern\": \"^3[0-9]{14}$\" }\n  ],\n  \"human_review_on_failure\": false\n}"
-            },
-            "url": {
-              "raw": "{{ALQARI_BASE_URL}}/documents/{{DOCUMENT_ID}}/validation",
-              "host": ["{{ALQARI_BASE_URL}}"],
-              "path": ["documents", "{{DOCUMENT_ID}}", "validation"]
-            }
-          }
-        },
-        {
-          "name": "Get Validation Result",
-          "request": {
-            "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{ALQARI_BASE_URL}}/documents/{{DOCUMENT_ID}}/validation",
+              "raw": "{{ALQARI_BASE_URL}}/services/ai-validate?document_id={{DOCUMENT_ID}}&rules_text=1. The invoice total must equal the sum of line items.",
               "host": ["{{ALQARI_BASE_URL}}"],
-              "path": ["documents", "{{DOCUMENT_ID}}", "validation"]
-            }
-          }
+              "path": ["services", "ai-validate"],
+              "query": [
+                { "key": "document_id", "value": "{{DOCUMENT_ID}}" },
+                { "key": "rules_text", "value": "1. The invoice total must equal the sum of line items." }
+              ]
+            },
+            "description": "Run rule-based validation against an already-processed document."
+          },
+          "response": []
         }
       ]
     },
     {
-      "name": "Chat",
+      "name": "Document Q&A",
       "item": [
         {
           "name": "Chat with Document",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "var json = pm.response.json();",
-                  "if (json.conversation_id) {",
-                  "    pm.environment.set('CONVERSATION_ID', json.conversation_id);",
-                  "}"
-                ],
-                "type": "text/javascript"
-              }
-            }
-          ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"message\": \"ما هو رقم الفاتورة والمبلغ الإجمالي؟\"\n}"
+              "raw": "{\n  \"message\": \"ما إجمالي الفاتورة؟\"\n}"
             },
             "url": {
-              "raw": "{{ALQARI_BASE_URL}}/documents/{{DOCUMENT_ID}}/chat",
+              "raw": "{{ALQARI_BASE_URL}}/services/chat/{{DOCUMENT_ID}}",
               "host": ["{{ALQARI_BASE_URL}}"],
-              "path": ["documents", "{{DOCUMENT_ID}}", "chat"]
-            }
-          }
-        },
-        {
-          "name": "Continue Conversation",
-          "request": {
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"message\": \"من هو المورد؟\",\n  \"conversation_id\": \"{{CONVERSATION_ID}}\"\n}"
+              "path": ["services", "chat", "{{DOCUMENT_ID}}"]
             },
-            "url": {
-              "raw": "{{ALQARI_BASE_URL}}/documents/{{DOCUMENT_ID}}/chat",
-              "host": ["{{ALQARI_BASE_URL}}"],
-              "path": ["documents", "{{DOCUMENT_ID}}", "chat"]
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Search",
-      "item": [
-        {
-          "name": "Search Documents",
-          "request": {
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"query\": \"فاتورة ضريبية\",\n  \"mode\": \"hybrid\",\n  \"limit\": 10\n}"
-            },
-            "url": {
-              "raw": "{{ALQARI_BASE_URL}}/search",
-              "host": ["{{ALQARI_BASE_URL}}"],
-              "path": ["search"]
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Webhooks",
-      "item": [
-        {
-          "name": "List Webhooks",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{ALQARI_BASE_URL}}/webhooks",
-              "host": ["{{ALQARI_BASE_URL}}"],
-              "path": ["webhooks"]
-            }
-          }
-        },
-        {
-          "name": "Create Webhook",
-          "request": {
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"url\": \"https://your-server.example.com/alqari/webhook\",\n  \"events\": [\"document.ocr.completed\", \"document.extraction.completed\"],\n  \"secret\": \"your_webhook_signing_secret\"\n}"
-            },
-            "url": {
-              "raw": "{{ALQARI_BASE_URL}}/webhooks",
-              "host": ["{{ALQARI_BASE_URL}}"],
-              "path": ["webhooks"]
-            }
-          }
+            "description": "Ask a question about a document. The document must be uploaded with process_for_chat=true."
+          },
+          "response": []
         }
       ]
     }

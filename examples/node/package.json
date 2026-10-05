@@ -6,13 +6,10 @@
   "engines": {
     "node": ">=18.0.0"
   },
-  "dependencies": {
-    "form-data": "^4.0.0"
-  },
+  "dependencies": {},
   "scripts": {
     "upload":   "node upload-document.js",
-    "ocr":      "node run-ocr.js",
-    "extract":  "node run-extraction.js",
+    "ocr":      "node get-ocr-output.js",
     "validate": "node validate-document.js",
     "chat":     "node chat-with-document.js"
   }
