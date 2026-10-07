@@ -4,7 +4,7 @@
 
 # ALQari Developer Hub
 
-**ALQari is an Arabic-first Document Intelligence API platform** — OCR, Arabic handwriting recognition, structured OCR (text, confidence, bounding boxes), layout analysis, rule-based validation, document Q&A, and workflow automation, all over a single REST API for Arabic and English documents.
+**ALQari is an Arabic-first Document Intelligence & Workflow Automation platform.** It turns Arabic and English documents into trusted, structured data over a single REST API — printed OCR, Arabic handwriting recognition, layout understanding, structured data extraction, rule-based validation, Human-in-the-Loop review, document Q&A, and workflow automation. OCR is one stage of the pipeline, not the end product.
 
 [![Validate OpenAPI](https://github.com/AlQari-ai/.github/actions/workflows/validate-openapi.yml/badge.svg)](https://github.com/AlQari-ai/.github/actions/workflows/validate-openapi.yml)
 [![Markdown Lint](https://github.com/AlQari-ai/.github/actions/workflows/markdown-lint.yml/badge.svg)](https://github.com/AlQari-ai/.github/actions/workflows/markdown-lint.yml)
@@ -115,6 +115,25 @@ The `bbox` is a 4-corner polygon in order top-left, top-right, bottom-right, bot
 | **Validation**          | Run rule-based AI validation against processed documents          |
 | **Document Q&A**        | Ask natural-language questions about a processed document         |
 | **Workflow automation** | Run published workflows and integrate via n8n / Odoo             |
+
+---
+
+## Comparison & Evaluation
+
+ALQari publishes a transparent capability comparison across leading document intelligence solutions, covering:
+
+- Arabic printed OCR and English OCR
+- Arabic handwriting recognition
+- Tables, layout detection, and structured extraction
+- Validation and confidence / grounding
+- Human-in-the-Loop review
+- Workflow automation
+- API, private / self-host deployment, and enterprise integration
+
+Each cell reflects what is publicly documented at the time of writing; a lack of documentation is not recorded as a negative. Accuracy figures are not claimed as independent benchmark scores.
+
+- Comparison (English): **[alqari.sa/benchmark](https://alqari.sa/benchmark)**
+- Comparison (Arabic): **[alqari.sa/ar/benchmark](https://alqari.sa/ar/benchmark)**
 
 ---
 
