@@ -130,7 +130,7 @@ ALQari publishes a transparent capability comparison across leading document int
 - Workflow automation
 - API, private / self-host deployment, and enterprise integration
 
-Each cell reflects what is publicly documented at the time of writing; a lack of documentation is not recorded as a negative. Accuracy figures are not claimed as independent benchmark scores.
+Each cell reflects what is publicly documented at the time of writing; a lack of documentation is not recorded as a negative. Accuracy figures are not claimed as independent benchmark scores. For how measured results should be evaluated reproducibly, see the [Arabic Document Intelligence Benchmark Methodology](docs/arabic-document-intelligence-benchmark-methodology.md).
 
 - Comparison (English): **[alqari.sa/benchmark](https://alqari.sa/benchmark)**
 - Comparison (Arabic): **[alqari.sa/ar/benchmark](https://alqari.sa/ar/benchmark)**
